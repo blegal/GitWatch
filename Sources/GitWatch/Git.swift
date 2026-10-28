@@ -80,10 +80,10 @@ enum Git {
             return "Serveur injoignable (réseau ou nom d’hôte)."
         }
         if text.contains("would be overwritten") {
-            return "Tirage impossible : des modifications locales seraient écrasées."
+            return "Tirage refusé : modifications locales en conflit."
         }
         if text.contains("unmerged files") || text.contains("merging is not possible") || text.contains("you have not concluded your merge") {
-            return "Une fusion est en cours dans ce dépôt : terminez-la ou annulez-la."
+            return "Fusion en cours : terminez-la ou annulez-la."
         }
         if text.contains("not possible to fast-forward") || text.contains("diverging branches") {
             return "Branches divergentes : avance rapide impossible."

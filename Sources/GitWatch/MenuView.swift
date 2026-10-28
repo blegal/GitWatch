@@ -184,8 +184,10 @@ struct RepoRow: View {
                         Text(branch).font(.caption).foregroundStyle(.tertiary).lineLimit(1)
                     }
                 }
-                if let error = repo.pullError ?? status?.error {
+                if let error = status?.error {
                     Text(error).font(.caption).foregroundStyle(.red).lineLimit(2).help(error)
+                } else if let error = repo.pullError {
+                    Text(error).font(.caption).foregroundStyle(.orange).lineLimit(2).help(error)
                 }
             }
             Spacer(minLength: 6)
