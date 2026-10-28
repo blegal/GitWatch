@@ -80,10 +80,13 @@ enum Git {
             return "Serveur injoignable (réseau ou nom d’hôte)."
         }
         if text.contains("would be overwritten") {
-            return "Tirage refusé : modifications locales en conflit."
+            return "Pull refusé : modifications locales en conflit."
         }
         if text.contains("unmerged files") || text.contains("merging is not possible") || text.contains("you have not concluded your merge") {
             return "Fusion en cours : terminez-la ou annulez-la."
+        }
+        if text.contains("[rejected]") || text.contains("non-fast-forward") || text.contains("fetch first") {
+            return "Push refusé : le serveur a des commits plus récents, faites d’abord un pull."
         }
         if text.contains("not possible to fast-forward") || text.contains("diverging branches") {
             return "Branches divergentes : avance rapide impossible."
@@ -148,6 +151,11 @@ enum Git {
             if part.contains("insertion") { added = value } else if part.contains("deletion") { removed = value }
         }
         return (added, removed)
+    }
+
+    /// Envoie la branche courante vers sa branche suivie (refusé par le serveur s'il a des commits plus récents).
+    static func push(_ repo: URL) throws {
+        try run(["push", "--quiet"], in: repo, timeout: 120)
     }
 
     /// Tirage sûr : avance rapide uniquement, sur l'amont déjà récupéré par fetch.

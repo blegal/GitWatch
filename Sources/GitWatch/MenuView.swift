@@ -64,9 +64,17 @@ struct MenuView: View {
     private var footer: some View {
         HStack {
             let pullable = monitor.safelyPullable.count
-            Button(pullable > 0 ? "Tout tirer (\(pullable))" : "Tout tirer") { Task { await monitor.pullAll() } }
-                .disabled(pullable == 0)
-                .help("Tire les dépôts en retard qui n’ont ni commit ni modification locale.")
+            let pushable = monitor.pushable.count
+            Button { Task { await monitor.pullAll() } } label: {
+                Label(pullable > 0 ? "Pull all (\(pullable))" : "Pull all", systemImage: "arrow.down")
+            }
+            .disabled(pullable == 0)
+            .help("Pull des dépôts en retard qui n’ont ni commit ni modification locale.")
+            Button { Task { await monitor.pushAll() } } label: {
+                Label(pushable > 0 ? "Push all (\(pushable))" : "Push all", systemImage: "arrow.up")
+            }
+            .disabled(pushable == 0)
+            .help("Push des dépôts en avance et à jour avec le serveur.")
             Spacer()
             Button("Réglages…") {
                 openWindow(id: "settings")
@@ -100,8 +108,8 @@ struct MenuView: View {
         return Group {
             HStack(spacing: 6) {
                 summaryPill(counts[.upToDate, default: 0] + counts[.pulled, default: 0], "à jour", .green)
-                summaryPill(counts[.toPull, default: 0], "à tirer", .orange)
-                summaryPill(counts[.toPush, default: 0], "à pousser", .blue)
+                summaryPill(counts[.toPull, default: 0], "pull", .orange)
+                summaryPill(counts[.toPush, default: 0], "push", .blue)
                 summaryPill(counts[.modified, default: 0], "modifié", .indigo)
                 summaryPill(counts[.error, default: 0], "erreur", .red)
             }
@@ -191,11 +199,10 @@ struct RepoRow: View {
                 }
             }
             Spacer(minLength: 6)
-            if monitor.pulling.contains(repo.id) {
+            if monitor.busy.contains(repo.id) {
                 ProgressView().controlSize(.mini)
-            } else if hovered, (status?.behind ?? 0) > 0 {
-                Button("Tirer") { Task { await monitor.pull(repo) } }
-                    .controlSize(.small)
+            } else if hovered, let action = quickAction {
+                action
             } else {
                 counters
             }
@@ -210,6 +217,24 @@ struct RepoRow: View {
         .onTapGesture { NSWorkspace.shared.open(repo.url) }
         .contextMenu { RepoActions(repo: repo) }
         .help(repo.url.path)
+    }
+
+    /// Bouton proposé au survol : Pull, Push, ou GitHub Desktop quand une fusion manuelle est nécessaire.
+    private var quickAction: AnyView? {
+        guard let status else { return nil }
+        if status.behind > 0, status.ahead > 0 || repo.pullError != nil, GitHubDesktop.isInstalled {
+            return AnyView(Button { GitHubDesktop.open(repo.url) } label: { Label("Desktop", systemImage: "arrow.triangle.merge") }
+                .controlSize(.small).help("Fusion manuelle dans GitHub Desktop"))
+        }
+        if status.behind > 0, status.ahead == 0 {
+            return AnyView(Button { Task { await monitor.pull(repo) } } label: { Label("Pull", systemImage: "arrow.down") }
+                .controlSize(.small))
+        }
+        if status.ahead > 0, status.behind == 0, status.upstream != nil {
+            return AnyView(Button { Task { await monitor.push(repo) } } label: { Label("Push", systemImage: "arrow.up") }
+                .controlSize(.small))
+        }
+        return nil
     }
 
     @ViewBuilder
@@ -259,7 +284,7 @@ struct RepoRow: View {
                     Text(status.changedFiles == 1 ? "1 fichier" : "\(status.changedFiles) fichiers")
                 }
                 if category == .pulled, let date = repo.lastPull {
-                    Text("tiré à \(date.formatted(date: .omitted, time: .shortened))").foregroundStyle(.tertiary)
+                    Text("pull à \(date.formatted(date: .omitted, time: .shortened))").foregroundStyle(.tertiary)
                 } else if category == .upToDate, status.upstream == nil {
                     Text("sans amont").foregroundStyle(.tertiary)
                 }
@@ -279,9 +304,14 @@ struct RepoActions: View {
     @Environment(Monitor.self) private var monitor
 
     var body: some View {
-        Button("Tirer (avance rapide)") { Task { await monitor.pull(repo) } }
+        Button { Task { await monitor.pull(repo) } } label: { Label("Pull (avance rapide)", systemImage: "arrow.down") }
             .disabled((repo.status?.behind ?? 0) == 0)
+        Button { Task { await monitor.push(repo) } } label: { Label("Push", systemImage: "arrow.up") }
+            .disabled((repo.status?.ahead ?? 0) == 0 || repo.status?.upstream == nil)
         Divider()
+        if GitHubDesktop.isInstalled {
+            Button("Ouvrir dans GitHub Desktop") { GitHubDesktop.open(repo.url) }
+        }
         Button("Ouvrir dans le Finder") { NSWorkspace.shared.open(repo.url) }
         Button("Ouvrir dans le Terminal") {
             if let terminal = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Terminal") {
@@ -296,5 +326,16 @@ struct RepoActions: View {
         Button("Ne plus suivre") {
             Preferences.shared.update(repo.id) { $0.followed = false }
         }
+    }
+}
+
+/// GitHub Desktop, s'il est installé : fusions manuelles et résolution de conflits.
+enum GitHubDesktop {
+    static var application: URL? { NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.github.GitHubClient") }
+    static var isInstalled: Bool { application != nil }
+
+    static func open(_ repo: URL) {
+        guard let application else { return }
+        NSWorkspace.shared.open([repo], withApplicationAt: application, configuration: NSWorkspace.OpenConfiguration())
     }
 }

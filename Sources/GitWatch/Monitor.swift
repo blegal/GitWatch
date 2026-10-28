@@ -24,10 +24,10 @@ enum RepoCategory: Int, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .error: "Erreurs"
-        case .toPull: "À tirer"
-        case .toPush: "À pousser"
+        case .toPull: "Pull à faire"
+        case .toPush: "Push à faire"
         case .modified: "Modifications locales"
-        case .pulled: "Tirés aujourd’hui"
+        case .pulled: "Pull du jour"
         case .upToDate: "À jour"
         case .unknown: "En cours de vérification"
         }
@@ -56,8 +56,8 @@ final class Monitor {
     private(set) var repos: [Repo] = []
     private(set) var lastCheck: Date?
     private(set) var isChecking = false
-    /// Dépôts en cours de tirage manuel.
-    private(set) var pulling: Set<String> = []
+    /// Dépôts en cours de pull ou de push manuel.
+    private(set) var busy: Set<String> = []
 
     private let preferences = Preferences.shared
     private var timer: Timer?
@@ -137,9 +137,9 @@ final class Monitor {
 
     /// Tirage manuel (avance rapide uniquement).
     func pull(_ repo: Repo) async {
-        guard !pulling.contains(repo.id) else { return }
-        pulling.insert(repo.id)
-        defer { pulling.remove(repo.id) }
+        guard !busy.contains(repo.id) else { return }
+        busy.insert(repo.id)
+        defer { busy.remove(repo.id) }
         let url = repo.url
         let outcome = await Task.detached { () -> (RepoStatus?, String?) in
             do {
@@ -159,7 +159,41 @@ final class Monitor {
         }
     }
 
-    /// Dépôts que « Tout tirer » peut mettre à jour sans risque : en retard, sans commit ni modification locale.
+    /// Push manuel de la branche courante.
+    func push(_ repo: Repo) async {
+        guard !busy.contains(repo.id) else { return }
+        busy.insert(repo.id)
+        defer { busy.remove(repo.id) }
+        let url = repo.url
+        let outcome = await Task.detached { () -> (RepoStatus?, String?) in
+            do {
+                try Git.push(url)
+                return (try? Git.status(of: url), nil)
+            } catch {
+                return (try? Git.status(of: url), error.localizedDescription)
+            }
+        }.value
+        guard let index = repos.firstIndex(where: { $0.id == repo.id }) else { return }
+        if let status = outcome.0 { repos[index].status = status }
+        repos[index].pullError = outcome.1
+    }
+
+    /// Dépôts que « Push all » peut envoyer : en avance, pas en retard, avec une branche suivie.
+    var pushable: [Repo] {
+        followedRepos.filter { repo in
+            guard let status = repo.status else { return false }
+            return status.ahead > 0 && status.behind == 0 && status.upstream != nil && status.error == nil
+        }
+    }
+
+    func pushAll() async {
+        let candidates = pushable
+        await withTaskGroup(of: Void.self) { group in
+            for repo in candidates { group.addTask { await self.push(repo) } }
+        }
+    }
+
+    /// Dépôts que « Pull all » peut mettre à jour sans risque : en retard, sans commit ni modification locale.
     var safelyPullable: [Repo] {
         followedRepos.filter { repo in
             guard let status = repo.status else { return false }
@@ -220,19 +254,19 @@ enum Notifier {
 
     static func behind(_ repos: [(String, Int)]) {
         if repos.count == 1, let (name, count) = repos.first {
-            post("\(name) a du retard", count == 1 ? "1 nouveau commit à tirer." : "\(count) nouveaux commits à tirer.")
+            post("\(name) : pull à faire", count == 1 ? "1 nouveau commit." : "\(count) nouveaux commits.")
         } else {
-            post("\(repos.count) dépôts ont du retard", repos.map(\.0).joined(separator: ", "))
+            post("\(repos.count) dépôts : pull à faire", repos.map(\.0).joined(separator: ", "))
         }
     }
 
     static func autoPulled(_ repos: [(String, Int)], failures: [String]) {
         if !repos.isEmpty {
             let detail = repos.map { "\($0.0) (\($0.1))" }.joined(separator: ", ")
-            post(repos.count == 1 ? "\(repos[0].0) a été tiré" : "\(repos.count) dépôts tirés automatiquement", detail)
+            post(repos.count == 1 ? "Pull automatique : \(repos[0].0)" : "Pull automatique de \(repos.count) dépôts", detail)
         }
         if !failures.isEmpty {
-            post("Échec du tirage automatique", failures.joined(separator: ", "))
+            post("Échec du pull automatique", failures.joined(separator: ", "))
         }
     }
 
