@@ -158,9 +158,17 @@ final class Monitor {
         }
     }
 
-    /// Tire tous les dépôts suivis en retard et sans commit local (pas de fusion).
+    /// Dépôts que « Tout tirer » peut mettre à jour sans risque : en retard, sans commit ni modification locale.
+    var safelyPullable: [Repo] {
+        followedRepos.filter { repo in
+            guard let status = repo.status else { return false }
+            return status.behind > 0 && status.ahead == 0 && status.isClean
+        }
+    }
+
+    /// Tire tous les dépôts en retard qui peuvent l'être sans risque (comme le tirage automatique).
     func pullAll() async {
-        let candidates = followedRepos.filter { ($0.status?.behind ?? 0) > 0 && $0.status?.ahead == 0 }
+        let candidates = safelyPullable
         await withTaskGroup(of: Void.self) { group in
             for repo in candidates { group.addTask { await self.pull(repo) } }
         }

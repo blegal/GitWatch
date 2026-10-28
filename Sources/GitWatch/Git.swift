@@ -55,9 +55,40 @@ enum Git {
             let message = String(decoding: errorData, as: UTF8.self)
                 .split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }
                 .first { !$0.isEmpty && !$0.hasPrefix("hint:") } ?? "git \(arguments.first ?? "") a échoué."
-            throw Failure(message: message.replacingOccurrences(of: "fatal: ", with: ""))
+            throw Failure(message: explain(String(decoding: errorData, as: UTF8.self), fallback: message))
         }
         return String(decoding: data, as: UTF8.self)
+    }
+
+    /// Traduit les erreurs git les plus courantes ; sinon, première ligne utile du message d'origine.
+    static func explain(_ output: String, fallback: String) -> String {
+        let text = output.lowercased()
+        if let range = output.range(of: #"could not read (Username|Password) for '([^']+)'"#, options: .regularExpression) {
+            let host = URL(string: output[range].components(separatedBy: "'")[1])?.host ?? "le serveur"
+            return "Identifiants HTTPS manquants pour \(host) : enregistrez-les dans le trousseau (un git pull dans le Terminal suffit)."
+        }
+        if text.contains("repository not found") || text.contains("does not appear to be a git repository") {
+            return "Dépôt introuvable sur le serveur : supprimé, renommé ou accès refusé."
+        }
+        if text.contains("access to repository not granted") || text.contains("403") {
+            return "Accès refusé par le serveur."
+        }
+        if text.contains("permission denied (publickey") || text.contains("host key verification failed") {
+            return "Accès SSH refusé : clé absente de l’agent ou hôte inconnu."
+        }
+        if text.contains("could not resolve host") || text.contains("unable to access") && text.contains("resolve") {
+            return "Serveur injoignable (réseau ou nom d’hôte)."
+        }
+        if text.contains("would be overwritten") {
+            return "Tirage impossible : des modifications locales seraient écrasées."
+        }
+        if text.contains("unmerged files") || text.contains("merging is not possible") || text.contains("you have not concluded your merge") {
+            return "Une fusion est en cours dans ce dépôt : terminez-la ou annulez-la."
+        }
+        if text.contains("not possible to fast-forward") || text.contains("diverging branches") {
+            return "Branches divergentes : avance rapide impossible."
+        }
+        return fallback.replacingOccurrences(of: "fatal: ", with: "").replacingOccurrences(of: "error: ", with: "")
     }
 
     /// Cherche les dépôts sous `root`, jusqu'à `depth` niveaux (0 : `root` seulement).
