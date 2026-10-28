@@ -219,18 +219,36 @@ struct RepoRow: View {
         .help(repo.url.path)
     }
 
-    /// Bouton proposé au survol : Pull, Push, ou GitHub Desktop quand une fusion manuelle est nécessaire.
+    /// Boutons proposés au survol. Dépôt modifié : outils (VS Code, GitHub Desktop, Claude), plus Push s'il est possible.
+    /// Sinon : Pull, Push, ou GitHub Desktop quand une fusion manuelle est nécessaire.
     private var quickAction: AnyView? {
         guard let status else { return nil }
-        if status.behind > 0, status.ahead > 0 || repo.pullError != nil, GitHubDesktop.isInstalled {
-            return AnyView(Button { GitHubDesktop.open(repo.url) } label: { Label("Desktop", systemImage: "arrow.triangle.merge") }
+        let canPush = status.ahead > 0 && status.behind == 0 && status.upstream != nil
+        let tools = ExternalTool.allCases.filter(\.isAvailable)
+        if !status.isClean, !tools.isEmpty {
+            return AnyView(HStack(spacing: 4) {
+                if canPush {
+                    Button { Task { await monitor.push(repo) } } label: { Image(systemName: "arrow.up") }
+                        .buttonStyle(.borderless).help("Push")
+                }
+                ForEach(tools) { tool in
+                    Button { tool.open(repo.url) } label: {
+                        Image(nsImage: tool.icon).resizable().frame(width: 18, height: 18)
+                    }
+                    .buttonStyle(.borderless)
+                    .help(tool.help)
+                }
+            })
+        }
+        if status.behind > 0, status.ahead > 0 || repo.pullError != nil, ExternalTool.githubDesktop.isAvailable {
+            return AnyView(Button { ExternalTool.githubDesktop.open(repo.url) } label: { Label("Desktop", systemImage: "arrow.triangle.merge") }
                 .controlSize(.small).help("Fusion manuelle dans GitHub Desktop"))
         }
         if status.behind > 0, status.ahead == 0 {
             return AnyView(Button { Task { await monitor.pull(repo) } } label: { Label("Pull", systemImage: "arrow.down") }
                 .controlSize(.small))
         }
-        if status.ahead > 0, status.behind == 0, status.upstream != nil {
+        if canPush {
             return AnyView(Button { Task { await monitor.push(repo) } } label: { Label("Push", systemImage: "arrow.up") }
                 .controlSize(.small))
         }
@@ -309,8 +327,8 @@ struct RepoActions: View {
         Button { Task { await monitor.push(repo) } } label: { Label("Push", systemImage: "arrow.up") }
             .disabled((repo.status?.ahead ?? 0) == 0 || repo.status?.upstream == nil)
         Divider()
-        if GitHubDesktop.isInstalled {
-            Button("Ouvrir dans GitHub Desktop") { GitHubDesktop.open(repo.url) }
+        ForEach(ExternalTool.allCases.filter(\.isAvailable)) { tool in
+            Button(tool.help) { tool.open(repo.url) }
         }
         Button("Ouvrir dans le Finder") { NSWorkspace.shared.open(repo.url) }
         Button("Ouvrir dans le Terminal") {
@@ -329,13 +347,65 @@ struct RepoActions: View {
     }
 }
 
-/// GitHub Desktop, s'il est installé : fusions manuelles et résolution de conflits.
-enum GitHubDesktop {
-    static var application: URL? { NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.github.GitHubClient") }
-    static var isInstalled: Bool { application != nil }
+/// Applications proposées pour travailler sur un dépôt modifié.
+enum ExternalTool: String, CaseIterable, Identifiable {
+    case vscode, githubDesktop, claude
+    var id: String { rawValue }
 
-    static func open(_ repo: URL) {
-        guard let application else { return }
-        NSWorkspace.shared.open([repo], withApplicationAt: application, configuration: NSWorkspace.OpenConfiguration())
+    var help: String {
+        switch self {
+        case .vscode: "Ouvrir dans VS Code"
+        case .githubDesktop: "Ouvrir dans GitHub Desktop"
+        case .claude: "Ouvrir Claude Code dans le Terminal"
+        }
+    }
+
+    private var bundleIdentifier: String {
+        switch self {
+        case .vscode: "com.microsoft.VSCode"
+        case .githubDesktop: "com.github.GitHubClient"
+        case .claude: "com.anthropic.claudefordesktop"
+        }
+    }
+
+    private var application: URL? { NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) }
+
+    /// Claude Code (ligne de commande) : emplacements d'installation habituels.
+    private static let claudeCommand: String? = {
+        let home = NSHomeDirectory()
+        return ["/opt/homebrew/bin/claude", "/usr/local/bin/claude", home + "/.local/bin/claude", home + "/.claude/local/claude"]
+            .first { FileManager.default.isExecutableFile(atPath: $0) }
+    }()
+
+    var isAvailable: Bool { self == .claude ? Self.claudeCommand != nil : application != nil }
+
+    /// Icône de l'application ; pour Claude, celle de l'app Claude si elle est installée, sinon celle du Terminal.
+    var icon: NSImage {
+        let url = application ?? NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Terminal")
+        return url.map { NSWorkspace.shared.icon(forFile: $0.path) } ?? NSImage()
+    }
+
+    func open(_ repo: URL) {
+        if self == .claude {
+            openClaude(in: repo)
+        } else if let application {
+            NSWorkspace.shared.open([repo], withApplicationAt: application, configuration: NSWorkspace.OpenConfiguration())
+        }
+    }
+
+    /// Un script .command s'ouvre dans le Terminal : il se place dans le dépôt et lance claude
+    /// (shell de connexion, pour retrouver le PATH de l'utilisateur), puis s'efface.
+    private func openClaude(in repo: URL) {
+        guard let command = Self.claudeCommand else { return }
+        func quoted(_ text: String) -> String { "'" + text.replacingOccurrences(of: "'", with: "'\\''") + "'" }
+        let script = FileManager.default.temporaryDirectory.appendingPathComponent("claude-\(repo.lastPathComponent)-\(UUID().uuidString.prefix(8)).command")
+        let content = "#!/bin/zsh -l\nrm -f \"$0\"\ncd \(quoted(repo.path)) && exec \(quoted(command))\n"
+        do {
+            try content.write(to: script, atomically: true, encoding: .utf8)
+            try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: script.path)
+            NSWorkspace.shared.open(script)
+        } catch {
+            NSLog("GitWatch : lancement de Claude impossible : \(error.localizedDescription)")
+        }
     }
 }
