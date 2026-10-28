@@ -219,7 +219,7 @@ struct RepoRow: View {
         .help(repo.url.path)
     }
 
-    /// Boutons proposés au survol. Dépôt modifié : outils (VS Code, GitHub Desktop, Claude), plus Push s'il est possible.
+    /// Boutons proposés au survol. Dépôt modifié : Pull ou Push s'ils sont possibles, puis VS Code, GitHub Desktop, Claude.
     /// Sinon : Pull, Push, ou GitHub Desktop quand une fusion manuelle est nécessaire.
     private var quickAction: AnyView? {
         guard let status else { return nil }
@@ -227,6 +227,11 @@ struct RepoRow: View {
         let tools = ExternalTool.allCases.filter(\.isAvailable)
         if !status.isClean, !tools.isEmpty {
             return AnyView(HStack(spacing: 4) {
+                // Pull reste possible : git refuse seulement si des fichiers modifiés sont touchés.
+                if status.behind > 0, status.ahead == 0 {
+                    Button { Task { await monitor.pull(repo) } } label: { Image(systemName: "arrow.down") }
+                        .buttonStyle(.borderless).help("Pull (avance rapide)")
+                }
                 if canPush {
                     Button { Task { await monitor.push(repo) } } label: { Image(systemName: "arrow.up") }
                         .buttonStyle(.borderless).help("Push")

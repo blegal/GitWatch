@@ -19,7 +19,7 @@ Nécessite macOS 26+ et Xcode (Swift 6). `UNIVERSAL=1`, `VERSION`, `BUILD_NUMBER
 - **Auto-pull** (par dépôt) : uniquement en avance rapide (`git merge --ff-only @{upstream}`), et seulement sans commit local ni modification en cours. Sinon le dépôt est juste signalé « Pull à faire ». Le pull manuel (survol d'une ligne › ↓ Pull, ou ↓ Pull all) est lui aussi en avance rapide uniquement ; Pull all ignore les dépôts modifiés.
 - **Push** : ↑ Push au survol d'un dépôt en avance, ou ↑ Push all pour tous les dépôts en avance et à jour avec le serveur (`git push`, refusé par le serveur s'il a des commits plus récents).
 - **Fusions manuelles** : pour un dépôt divergé ou dont le pull a été refusé, le survol propose d'ouvrir GitHub Desktop (s'il est installé).
-- **Dépôt modifié** : le survol propose ↑ Push (s'il y a des commits à envoyer), puis VS Code, GitHub Desktop et Claude (Claude Code lancé dans le Terminal, dans le dossier du dépôt). Seules les applications installées apparaissent.
+- **Dépôt modifié** : le survol propose ↓ Pull ou ↑ Push (s'ils sont possibles), puis VS Code, GitHub Desktop et Claude (Claude Code lancé dans le Terminal, dans le dossier du dépôt). Seules les applications installées apparaissent.
 
 ## Menu de la barre des menus
 
