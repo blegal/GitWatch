@@ -63,9 +63,10 @@ struct MenuView: View {
 
     private var footer: some View {
         HStack {
-            let pullable = repos.filter { ($0.status?.behind ?? 0) > 0 && $0.status?.ahead == 0 }.count
-            Button("Tout tirer") { Task { await monitor.pullAll() } }
+            let pullable = monitor.safelyPullable.count
+            Button(pullable > 0 ? "Tout tirer (\(pullable))" : "Tout tirer") { Task { await monitor.pullAll() } }
                 .disabled(pullable == 0)
+                .help("Tire les dépôts en retard qui n’ont ni commit ni modification locale.")
             Spacer()
             Button("Réglages…") {
                 openWindow(id: "settings")
@@ -183,11 +184,10 @@ struct RepoRow: View {
                         Text(branch).font(.caption).foregroundStyle(.tertiary).lineLimit(1)
                     }
                 }
-                if let error = status?.error ?? repo.pullError {
-                    Text(error).font(.caption).foregroundStyle(.red).lineLimit(1).help(error)
+                if let error = repo.pullError ?? status?.error {
+                    Text(error).font(.caption).foregroundStyle(.red).lineLimit(2).help(error)
                 }
             }
-            .layoutPriority(1)
             Spacer(minLength: 6)
             if monitor.pulling.contains(repo.id) {
                 ProgressView().controlSize(.mini)
@@ -266,6 +266,8 @@ struct RepoRow: View {
         .font(.caption.monospacedDigit())
         .foregroundStyle(.secondary)
         .lineLimit(1)
+        // Les compteurs gardent toujours leur largeur : c'est le nom qui se tronque.
+        .fixedSize()
     }
 }
 
@@ -287,6 +289,10 @@ struct RepoActions: View {
         Button("Copier le chemin") {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(repo.url.path, forType: .string)
+        }
+        Divider()
+        Button("Ne plus suivre") {
+            Preferences.shared.update(repo.id) { $0.followed = false }
         }
     }
 }
