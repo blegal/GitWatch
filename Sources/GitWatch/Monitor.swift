@@ -35,7 +35,8 @@ enum RepoCategory: Int, CaseIterable, Identifiable {
 
     init(_ repo: Repo) {
         guard let status = repo.status else { self = .unknown; return }
-        if status.error != nil || repo.pullError != nil { self = .error }
+        // Un tirage refusé (modifications locales…) n'est pas une erreur de serveur : le dépôt reste « À tirer ».
+        if status.error != nil { self = .error }
         else if status.behind > 0 { self = .toPull }
         else if status.ahead > 0 { self = .toPush }
         else if !status.isClean { self = .modified }
