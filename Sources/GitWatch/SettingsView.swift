@@ -81,7 +81,7 @@ struct ReposPane: View {
         .searchable(text: $filter, placement: .toolbar, prompt: "Filtrer")
         .safeAreaInset(edge: .bottom) {
             HStack {
-                Text("Le tirage automatique se fait en avance rapide, seulement sans commit ni modification locale.")
+                Text("L’auto-pull se fait en avance rapide, seulement sans commit ni modification locale.")
                     .font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 Text(monitor.repos.count == 1 ? "1 dépôt" : "\(monitor.repos.count) dépôts").font(.caption).foregroundStyle(.secondary)
@@ -148,10 +148,10 @@ struct StateLabel: View {
         guard let status = repo.status else { return ("—", .secondary) }
         switch RepoCategory(repo) {
         case .error: return ("Erreur", .red)
-        case .toPull: return (status.ahead > 0 ? "↓\(status.behind) ↑\(status.ahead) divergé" : "↓\(status.behind) en retard", .orange)
-        case .toPush: return ("↑\(status.ahead) à pousser", .blue)
+        case .toPull: return (status.ahead > 0 ? "↓\(status.behind) ↑\(status.ahead) divergé" : "↓\(status.behind) pull", .orange)
+        case .toPush: return ("↑\(status.ahead) push", .blue)
         case .modified: return ("+\(status.added) −\(status.removed)", .indigo)
-        case .pulled: return ("Tiré aujourd’hui", .green)
+        case .pulled: return ("Pull aujourd’hui", .green)
         case .upToDate: return (status.upstream == nil ? "Sans amont" : "À jour", status.upstream == nil ? .secondary : .green)
         case .unknown: return ("—", .secondary)
         }
@@ -254,11 +254,11 @@ struct GeneralPane: View {
                     ForEach(MenuLayout.allCases) { Text($0.title).tag($0) }
                 }
                 .pickerStyle(.segmented)
-                Toggle("Afficher le nombre de dépôts à tirer dans la barre des menus", isOn: $preferences.showBadge)
+                Toggle("Afficher le nombre de pull à faire dans la barre des menus", isOn: $preferences.showBadge)
             }
             Section("Notifications") {
-                Toggle("Quand un dépôt a de nouveaux commits à tirer", isOn: $preferences.notifyBehind)
-                Toggle("Après un tirage automatique", isOn: $preferences.notifyAutoPull)
+                Toggle("Quand un pull est à faire (nouveaux commits sur le serveur)", isOn: $preferences.notifyBehind)
+                Toggle("Après un auto-pull", isOn: $preferences.notifyAutoPull)
             }
             .onChange(of: preferences.notifyBehind || preferences.notifyAutoPull) { _, on in
                 if on { Notifier.requestAuthorizationIfNeeded() }
