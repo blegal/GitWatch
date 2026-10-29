@@ -120,6 +120,7 @@ final class Monitor {
         }.value
         let previous = Dictionary(repos.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         repos = urls.map { previous[$0.path] ?? Repo(url: $0) }
+        ExternalTool.reload()
 
         let jobs = repos.compactMap { repo -> (URL, Bool)? in
             let settings = preferences.settings(for: repo.id)
@@ -128,6 +129,32 @@ final class Monitor {
         var newlyBehind: [(String, Int)] = []
         var autoPulled: [(String, Int)] = []
         var pullFailures: [String] = []
+
+        // Résultats appliqués par lots (au plus deux fois par seconde) : chaque modification de `repos`
+        // redessine le menu et l'icône de la barre des menus.
+        var received: [Outcome] = []
+        var lastFlush = Date()
+        func flush() {
+            guard !received.isEmpty else { return }
+            var updated = repos
+            for outcome in received {
+                guard let index = updated.firstIndex(where: { $0.id == outcome.url.path }) else { continue }
+                let old = updated[index]
+                updated[index].status = outcome.status
+                updated[index].pullError = outcome.pullError
+                if outcome.pulled > 0 {
+                    updated[index].lastPull = Date()
+                    updated[index].pulledCommits = outcome.pulled
+                    autoPulled.append((old.name, outcome.pulled))
+                }
+                if outcome.pullError != nil { pullFailures.append(old.name) }
+                let behind = outcome.status.behind
+                if fetch, behind > (old.status?.behind ?? 0) { newlyBehind.append((old.name, behind)) }
+            }
+            received.removeAll()
+            repos = updated
+            lastFlush = Date()
+        }
 
         await withTaskGroup(of: Outcome.self) { group in
             var pending = jobs[...]
@@ -140,20 +167,11 @@ final class Monitor {
                 if let (url, autoPull) = pending.popFirst() {
                     group.addTask { Self.check(url, fetch: fetch, autoPull: autoPull) }
                 }
-                guard let index = repos.firstIndex(where: { $0.id == outcome.url.path }) else { continue }
-                let old = repos[index]
-                repos[index].status = outcome.status
-                repos[index].pullError = outcome.pullError
-                if outcome.pulled > 0 {
-                    repos[index].lastPull = Date()
-                    repos[index].pulledCommits = outcome.pulled
-                    autoPulled.append((old.name, outcome.pulled))
-                }
-                if outcome.pullError != nil { pullFailures.append(old.name) }
-                let behind = outcome.status.behind
-                if fetch, behind > (old.status?.behind ?? 0) { newlyBehind.append((old.name, behind)) }
+                received.append(outcome)
+                if Date().timeIntervalSince(lastFlush) > 0.5 { flush() }
             }
         }
+        flush()
         if fetch { lastCheck = Date() }
 
         if preferences.notifyBehind, !newlyBehind.isEmpty { Notifier.behind(newlyBehind) }
