@@ -1,12 +1,17 @@
 import SwiftUI
+import UpdateKit
 
 @main
 struct GitWatchApp: App {
     @State private var monitor = Monitor.shared
     @State private var preferences = Preferences.shared
+    @State private var router = WindowRouter.shared
 
     init() {
-        Task { @MainActor in Monitor.shared.start() }
+        Task { @MainActor in
+            Monitor.shared.start()
+            Updater.shared.checkAtLaunch()
+        }
     }
 
     var body: some Scene {
@@ -14,17 +19,19 @@ struct GitWatchApp: App {
             MenuView()
                 .environment(monitor)
                 .environment(preferences)
+                .environment(router)
         } label: {
             MenuBarLabel(count: preferences.showBadge ? monitor.attentionCount : 0, checking: monitor.isChecking)
         }
         .menuBarExtraStyle(.window)
 
-        Window("GitWatch", id: "settings") {
-            SettingsView()
+        Window("GitWatch", id: "main") {
+            AppWindow()
                 .environment(monitor)
                 .environment(preferences)
+                .environment(router)
         }
-        .defaultSize(width: 760, height: 520)
+        .defaultSize(width: 1080, height: 640)
         .windowResizability(.contentMinSize)
         .defaultLaunchBehavior(.suppressed)
     }

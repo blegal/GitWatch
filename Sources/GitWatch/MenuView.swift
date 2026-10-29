@@ -4,6 +4,7 @@ import SwiftUI
 struct MenuView: View {
     @Environment(Monitor.self) private var monitor
     @Environment(Preferences.self) private var preferences
+    @Environment(WindowRouter.self) private var router
     @Environment(\.openWindow) private var openWindow
     @State private var showUpToDate = false
 
@@ -43,6 +44,9 @@ struct MenuView: View {
                 Text(subtitle).font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
+            Button { show(.dashboard) } label: { Image(systemName: "macwindow") }
+                .buttonStyle(.borderless)
+                .help("Ouvrir le tableau de bord")
             if monitor.isChecking {
                 ProgressView().controlSize(.small)
             } else {
@@ -76,16 +80,19 @@ struct MenuView: View {
             .disabled(pushable == 0)
             .help("Push des dépôts en avance et à jour avec le serveur.")
             Spacer()
-            Button("Réglages…") {
-                openWindow(id: "settings")
-                NSApp.activate()
-            }
+            Button("Réglages…") { show(.settings) }
             Button("Quitter") { NSApp.terminate(nil) }
         }
         .buttonStyle(.borderless)
         .font(.callout)
         .padding(.horizontal, 14)
         .padding(.vertical, 9)
+    }
+
+    private func show(_ tab: WindowRouter.Tab) {
+        router.tab = tab
+        openWindow(id: "main")
+        NSApp.activate()
     }
 
     private var empty: some View {
@@ -188,9 +195,7 @@ struct RepoRow: View {
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 5) {
                     Text(repo.name).fontWeight(.medium).lineLimit(1)
-                    if let branch = status?.branch {
-                        Text(branch).font(.caption).foregroundStyle(.tertiary).lineLimit(1)
-                    }
+                    if let status { BranchLabel(status: status) }
                 }
                 if let error = status?.error {
                     Text(error).font(.caption).foregroundStyle(.red).lineLimit(2).help(error)
@@ -204,7 +209,7 @@ struct RepoRow: View {
             } else if hovered, let action = quickAction {
                 action
             } else {
-                counters
+                RepoCounters(repo: repo)
             }
         }
         .font(.callout)
@@ -216,7 +221,7 @@ struct RepoRow: View {
         .onHover { hovered = $0 }
         .onTapGesture { NSWorkspace.shared.open(repo.url) }
         .contextMenu { RepoActions(repo: repo) }
-        .help(repo.url.path)
+        .help(RepoSummary.tooltip(repo))
     }
 
     /// Boutons proposés au survol. Dépôt modifié : Pull ou Push s'ils sont possibles, puis VS Code, GitHub Desktop, Claude.
@@ -225,7 +230,7 @@ struct RepoRow: View {
         guard let status else { return nil }
         let canPush = status.ahead > 0 && status.behind == 0 && status.upstream != nil
         let tools = ExternalTool.allCases.filter(\.isAvailable)
-        if !status.isClean, !tools.isEmpty {
+        if status.hasLocalWork, !tools.isEmpty {
             return AnyView(HStack(spacing: 4) {
                 // Pull reste possible : git refuse seulement si des fichiers modifiés sont touchés.
                 if status.behind > 0, status.ahead == 0 {
@@ -264,60 +269,10 @@ struct RepoRow: View {
     private var marker: some View {
         switch style {
         case .dot:
-            Circle().fill(color).frame(width: 7, height: 7).frame(width: 16)
+            Circle().fill(category.color).frame(width: 7, height: 7).frame(width: 16)
         case .icon:
-            Image(systemName: symbol).foregroundStyle(color).frame(width: 16)
+            Image(systemName: category.symbol(repo)).foregroundStyle(category.color).frame(width: 16)
         }
-    }
-
-    private var color: Color {
-        switch category {
-        case .error: .red
-        case .toPull: .orange
-        case .toPush: .blue
-        case .modified: .indigo
-        case .pulled, .upToDate: .green
-        case .unknown: .gray
-        }
-    }
-
-    private var symbol: String {
-        switch category {
-        case .error: "exclamationmark.triangle"
-        case .toPull: (status?.ahead ?? 0) > 0 ? "arrow.triangle.branch" : "arrow.down.circle"
-        case .toPush: "arrow.up.circle"
-        case .modified: "pencil.circle"
-        case .pulled: "checkmark.circle.fill"
-        case .upToDate: "checkmark.circle"
-        case .unknown: "circle.dotted"
-        }
-    }
-
-    private var counters: some View {
-        HStack(spacing: 6) {
-            if let status {
-                if status.behind > 0 { Text("↓\(status.behind)") }
-                if status.ahead > 0 { Text("↑\(status.ahead)") }
-                if status.added > 0 || status.removed > 0 {
-                    HStack(spacing: 3) {
-                        Text("+\(status.added)").foregroundStyle(.green)
-                        Text("−\(status.removed)").foregroundStyle(.red)
-                    }
-                } else if status.changedFiles > 0 {
-                    Text(status.changedFiles == 1 ? "1 fichier" : "\(status.changedFiles) fichiers")
-                }
-                if category == .pulled, let date = repo.lastPull {
-                    Text("pull à \(date.formatted(date: .omitted, time: .shortened))").foregroundStyle(.tertiary)
-                } else if category == .upToDate, status.upstream == nil {
-                    Text("sans amont").foregroundStyle(.tertiary)
-                }
-            }
-        }
-        .font(.caption.monospacedDigit())
-        .foregroundStyle(.secondary)
-        .lineLimit(1)
-        // Les compteurs gardent toujours leur largeur : c'est le nom qui se tronque.
-        .fixedSize()
     }
 }
 
@@ -331,6 +286,11 @@ struct RepoActions: View {
             .disabled((repo.status?.behind ?? 0) == 0)
         Button { Task { await monitor.push(repo) } } label: { Label("Push", systemImage: "arrow.up") }
             .disabled((repo.status?.ahead ?? 0) == 0 || repo.status?.upstream == nil)
+        if let incoming = repo.status?.incoming, !incoming.isEmpty {
+            Menu("Commits à récupérer (\(repo.status?.behind ?? incoming.count))") {
+                ForEach(incoming) { Text("\($0.subject) — \($0.author)") }
+            }
+        }
         Divider()
         ForEach(ExternalTool.allCases.filter(\.isAvailable)) { tool in
             Button(tool.help) { tool.open(repo.url) }
@@ -340,6 +300,9 @@ struct RepoActions: View {
             if let terminal = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Terminal") {
                 NSWorkspace.shared.open([repo.url], withApplicationAt: terminal, configuration: NSWorkspace.OpenConfiguration())
             }
+        }
+        if let web = repo.status?.webURL {
+            Button("Ouvrir sur \(RepoSummary.hostName(web))") { NSWorkspace.shared.open(web) }
         }
         Button("Copier le chemin") {
             NSPasteboard.general.clearContents()

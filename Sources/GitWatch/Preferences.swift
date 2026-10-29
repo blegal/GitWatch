@@ -37,6 +37,10 @@ final class Preferences {
     var notifyBehind: Bool { didSet { defaults.set(notifyBehind, forKey: "notifyBehind") } }
     var notifyAutoPull: Bool { didSet { defaults.set(notifyAutoPull, forKey: "notifyAutoPull") } }
     var showBadge: Bool { didSet { defaults.set(showBadge, forKey: "showBadge") } }
+    /// Dossier où cloner les dépôts manquants (par défaut : le premier dossier exploré).
+    var cloneFolder: String? { didSet { defaults.set(cloneFolder, forKey: "cloneFolder") } }
+    /// Dépôts distants à ne plus proposer (clés « hôte/propriétaire/nom »).
+    var ignoredRemotes: Set<String> { didSet { save(ignoredRemotes, "ignoredRemotes") } }
 
     static let intervals = [5, 10, 15, 30, 60, 120, 240]
 
@@ -50,6 +54,8 @@ final class Preferences {
         notifyBehind = defaults.object(forKey: "notifyBehind") as? Bool ?? true
         notifyAutoPull = defaults.object(forKey: "notifyAutoPull") as? Bool ?? true
         showBadge = defaults.object(forKey: "showBadge") as? Bool ?? true
+        cloneFolder = defaults.string(forKey: "cloneFolder")
+        ignoredRemotes = Self.load("ignoredRemotes") ?? []
     }
 
     func settings(for path: String) -> RepoSettings { repos[path] ?? RepoSettings() }
