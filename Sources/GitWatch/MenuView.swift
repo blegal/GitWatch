@@ -1,4 +1,5 @@
 import SwiftUI
+import UpdateKit
 
 /// Contenu du menu de la barre des menus : présentation « Liste » (A) ou « Par action » (B).
 struct MenuView: View {
@@ -80,8 +81,14 @@ struct MenuView: View {
             .disabled(pushable == 0)
             .help("Push des dépôts en avance et à jour avec le serveur.")
             Spacer()
-            Button("Réglages…") { show(.settings) }
-            Button("Quitter") { NSApp.terminate(nil) }
+            HStack(spacing: 12) {
+                UpdateIndicator()
+                Button { show(.settings) } label: { Image(systemName: "gearshape") }
+                    .help("Réglages…")
+                Button { NSApp.terminate(nil) } label: { Image(systemName: "power") }
+                    .help("Quitter GitWatch")
+            }
+            .imageScale(.large)
         }
         .buttonStyle(.borderless)
         .font(.callout)
@@ -376,6 +383,51 @@ enum ExternalTool: String, CaseIterable, Identifiable {
             NSWorkspace.shared.open(script)
         } catch {
             NSLog("GitWatch : lancement de Claude impossible : \(error.localizedDescription)")
+        }
+    }
+}
+
+/// État de la mise à jour : rechercher, version disponible (vert), installation et redémarrage (jaune).
+struct UpdateIndicator: View {
+    @State private var state = Updater.shared.state
+
+    var body: some View {
+        Button {
+            Updater.shared.checkForUpdates(nil)
+            NSApp.activate()
+        } label: {
+            Image(systemName: symbol).foregroundStyle(tint)
+        }
+        .disabled(state == .checking)
+        .help(help)
+        .onReceive(NotificationCenter.default.publisher(for: Updater.stateDidChange)) { _ in
+            state = Updater.shared.state
+        }
+    }
+
+    private var symbol: String {
+        switch state {
+        case .idle, .checking: "arrow.trianglehead.clockwise"
+        case .available: "arrow.down.circle.fill"
+        case .installing: "arrow.triangle.2.circlepath.circle.fill"
+        }
+    }
+
+    private var tint: Color {
+        switch state {
+        case .idle: .secondary
+        case .checking: Color(nsColor: .tertiaryLabelColor)
+        case .available: .green
+        case .installing: .yellow
+        }
+    }
+
+    private var help: String {
+        switch state {
+        case .idle: "Rechercher les mises à jour (version \(Updater.shared.currentVersion))"
+        case .checking: "Recherche des mises à jour…"
+        case .available(let version): "Version \(version) disponible : cliquer pour l’installer"
+        case .installing: "Installation de la mise à jour, puis redémarrage…"
         }
     }
 }
