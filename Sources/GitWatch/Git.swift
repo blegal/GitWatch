@@ -71,16 +71,28 @@ enum Git {
             ? URL(fileURLWithPath: path) : URL(fileURLWithPath: "/usr/bin/git")
     }()
 
-    /// Exécute git dans `repo`. Jamais de demande interactive : sans identifiants, la commande échoue.
-    @discardableResult
-    static func run(_ arguments: [String], in repo: URL, timeout: TimeInterval = 30) throws -> String {
-        let process = Process()
-        process.executableURL = executable
-        process.arguments = ["-C", repo.path] + arguments
+    /// Jamais de demande interactive : sans identifiants, la commande échoue.
+    /// Pas de verrou facultatif : `git status` ne réécrit pas l'index (moins d'écritures disque, pas de conflit avec l'éditeur).
+    private static let environment: [String: String] = {
         var environment = ProcessInfo.processInfo.environment
         environment["GIT_TERMINAL_PROMPT"] = "0"
         environment["GIT_SSH_COMMAND"] = "ssh -o BatchMode=yes -o ConnectTimeout=15"
+        environment["GIT_OPTIONAL_LOCKS"] = "0"
         environment["LC_ALL"] = "C"
+        return environment
+    }()
+
+    /// Exécute git dans `repo`.
+    @discardableResult
+    static func run(_ arguments: [String], in repo: URL, timeout: TimeInterval = 30) throws -> String {
+        // Les fils de Swift Concurrency ne vident pas de pool d'autorelease : sans celui-ci, Process et Pipe s'accumulent.
+        try autoreleasepool { try execute(arguments, in: repo, timeout: timeout) }
+    }
+
+    private static func execute(_ arguments: [String], in repo: URL, timeout: TimeInterval) throws -> String {
+        let process = Process()
+        process.executableURL = executable
+        process.arguments = ["-C", repo.path] + arguments
         process.environment = environment
         let output = Pipe(), errors = Pipe()
         process.standardOutput = output
@@ -91,8 +103,12 @@ enum Git {
         process.terminationHandler = { _ in finished.signal() }
         try process.run()
 
-        let killer = DispatchWorkItem { if process.isRunning { process.terminate() } }
-        DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: killer)
+        // Une source de minuterie annulée est libérée aussitôt (un DispatchWorkItem annulé resterait en file
+        // jusqu'à son échéance, avec le processus, ses tubes et son environnement).
+        let killer = DispatchSource.makeTimerSource(queue: .global(qos: .utility))
+        killer.schedule(deadline: .now() + timeout)
+        killer.setEventHandler { [weak process] in if let process, process.isRunning { process.terminate() } }
+        killer.resume()
         // Lecture avant waitUntilExit : une sortie volumineuse bloquerait sinon le processus.
         let data = output.fileHandleForReading.readDataToEndOfFile()
         let errorData = errors.fileHandleForReading.readDataToEndOfFile()
@@ -189,53 +205,80 @@ enum Git {
             // Échoue sans commit initial : on garde alors 0.
             (status.added, status.removed) = (try? run(["diff", "HEAD", "--shortstat"], in: repo)).map(parseShortStat) ?? (0, 0)
         }
-        // Échoue sans stash : 0.
-        status.stashes = (try? run(["rev-list", "--walk-reflogs", "--count", "refs/stash"], in: repo)).flatMap { Int($0.trimmed) } ?? 0
-
-        let remotes = ((try? run(["remote"], in: repo)) ?? "").split(separator: "\n").map(String.init)
-        guard let remote = remotes.contains("origin") ? "origin" : remotes.first else { return status }
-        status.webURL = (try? run(["remote", "get-url", remote], in: repo)).flatMap { webURL(fromRemote: $0) }
-        status.defaultBranch = defaultBranch(of: repo, remote: remote)
-        if status.onOtherBranch, let main = status.defaultBranch {
-            status.defaultBehind = (try? run(["rev-list", "--count", "refs/heads/\(main)..refs/remotes/\(remote)/\(main)"], in: repo))
-                .flatMap { Int($0.trimmed) } ?? 0
+        let refs = References(try? run(["for-each-ref", "--format=%(refname)%09%(upstream:short)%09%(upstream:track)%09%(symref)",
+                                         "refs/heads", "refs/remotes", "refs/stash"], in: repo))
+        if refs.hasStash {
+            status.stashes = (try? run(["rev-list", "--walk-reflogs", "--count", "refs/stash"], in: repo)).flatMap { Int($0.trimmed) } ?? 0
         }
-        status.unpushedBranches = unpushedBranches(of: repo, current: status.upstream == nil ? nil : status.branch)
+
+        // « remote.origin.url git@github.com:… » : noms et URL des remotes en un seul appel.
+        let remotes = remoteURLs(of: repo)
+        guard let (remote, url) = remotes.first(where: { $0.name == "origin" }) ?? remotes.first else { return status }
+        status.webURL = webURL(fromRemote: url)
+        status.defaultBranch = refs.defaultBranch(remote: remote)
+        if status.onOtherBranch, let main = status.defaultBranch, let local = refs.heads.first(where: { $0.name == main }) {
+            status.defaultBehind = local.upstream == "\(remote)/\(main)" ? local.behind
+                : (try? run(["rev-list", "--count", "refs/heads/\(main)..refs/remotes/\(remote)/\(main)"], in: repo)).flatMap { Int($0.trimmed) } ?? 0
+        }
+        status.unpushedBranches = unpushedBranches(of: repo, refs: refs, current: status.upstream == nil ? nil : status.branch)
         if status.behind > 0 {
             status.incoming = incoming(of: repo)
         }
         return status
     }
 
-    /// Branche vers laquelle pointe « origin/HEAD », sinon main ou master s'ils existent sur le serveur.
-    private static func defaultBranch(of repo: URL, remote: String) -> String? {
-        if let head = try? run(["symbolic-ref", "--quiet", "--short", "refs/remotes/\(remote)/HEAD"], in: repo).trimmed, !head.isEmpty {
-            return String(head.dropFirst(remote.count + 1))
+    /// Références lues d'un coup par for-each-ref : branches locales, branches distantes, origin/HEAD, stash.
+    private struct References {
+        struct Head { let name: String, upstream: String, gone: Bool, ahead: Int, behind: Int }
+        var heads: [Head] = []
+        var remoteRefs: Set<String> = []
+        var remoteHeads: [String: String] = [:]
+        var hasStash = false
+
+        init(_ output: String?) {
+            for line in (output ?? "").split(separator: "\n") {
+                let fields = line.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
+                guard fields.count == 4 else { continue }
+                let (ref, upstream, track, symref) = (fields[0], fields[1], fields[2], fields[3])
+                if ref.hasPrefix("refs/heads/") {
+                    // « [ahead 3] », « [ahead 3, behind 1] », « [gone] »
+                    heads.append(Head(name: String(ref.dropFirst("refs/heads/".count)), upstream: upstream, gone: track.contains("gone"),
+                                      ahead: Self.count("ahead", in: track), behind: Self.count("behind", in: track)))
+                } else if ref.hasPrefix("refs/remotes/") {
+                    let name = String(ref.dropFirst("refs/remotes/".count))
+                    if name.hasSuffix("/HEAD") { remoteHeads[String(name.dropLast("/HEAD".count))] = symref } else { remoteRefs.insert(name) }
+                } else if ref == "refs/stash" {
+                    hasStash = true
+                }
+            }
         }
-        return ["main", "master"].first { (try? run(["rev-parse", "--verify", "--quiet", "refs/remotes/\(remote)/\($0)"], in: repo)) != nil }
+
+        private static func count(_ word: String, in track: String) -> Int {
+            guard let range = track.range(of: word + #" \d+"#, options: .regularExpression) else { return 0 }
+            return Int(track[range].dropFirst(word.count + 1)) ?? 0
+        }
+
+        /// Branche vers laquelle pointe « origin/HEAD », sinon main ou master s'ils existent sur le serveur.
+        func defaultBranch(remote: String) -> String? {
+            let prefix = "refs/remotes/\(remote)/"
+            if let head = remoteHeads[remote], head.hasPrefix(prefix) { return String(head.dropFirst(prefix.count)) }
+            return ["main", "master"].first { remoteRefs.contains("\(remote)/\($0)") }
+        }
     }
 
     /// Branches locales avec des commits absents du serveur. `current` : branche courante suivie, déjà comptée.
-    private static func unpushedBranches(of repo: URL, current: String?) -> [BranchWork] {
-        guard let refs = try? run(["for-each-ref", "--format=%(refname:short)%09%(upstream:short)%09%(upstream:track)", "refs/heads"], in: repo)
-        else { return [] }
+    private static func unpushedBranches(of repo: URL, refs: References, current: String?) -> [BranchWork] {
         // Sans branche distante récupérée (dépôts gérés par west, par exemple), « absent du serveur » n'a pas de sens.
-        let hasRemoteRefs = !((try? run(["for-each-ref", "--count=1", "refs/remotes"], in: repo)) ?? "").trimmed.isEmpty
+        let hasRemoteRefs = !refs.remoteRefs.isEmpty || !refs.remoteHeads.isEmpty
         var result: [BranchWork] = []
-        for line in refs.split(separator: "\n") {
-            let fields = line.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
-            // manifest-rev : branche technique de west (Zephyr), jamais poussée.
-            guard fields.count == 3, fields[0] != current, fields[0] != "manifest-rev" else { continue }
-            let (name, upstream, track) = (fields[0], fields[1], fields[2])
-            if !upstream.isEmpty, !track.contains("gone") {
-                // « [ahead 3] » ou « [ahead 3, behind 1] »
-                if let range = track.range(of: #"ahead \d+"#, options: .regularExpression),
-                   let count = Int(track[range].dropFirst("ahead ".count)), count > 0 {
-                    result.append(BranchWork(name: name, commits: count, local: false))
-                }
-            } else if hasRemoteRefs, let count = (try? run(["rev-list", "--count", "refs/heads/\(name)", "--not", "--remotes"], in: repo)).flatMap({ Int($0.trimmed) }),
+        // manifest-rev : branche technique de west (Zephyr), jamais poussée.
+        for head in refs.heads where head.name != current && head.name != "manifest-rev" {
+            if !head.upstream.isEmpty, !head.gone {
+                if head.ahead > 0 { result.append(BranchWork(name: head.name, commits: head.ahead, local: false)) }
+            } else if hasRemoteRefs,
+                      let count = (try? run(["rev-list", "--count", "refs/heads/\(head.name)", "--not", "--remotes"], in: repo)).flatMap({ Int($0.trimmed) }),
                       count > 0 {
-                result.append(BranchWork(name: name, commits: count, local: true))
+                result.append(BranchWork(name: head.name, commits: count, local: true))
             }
         }
         return result
@@ -266,10 +309,14 @@ enum Git {
         return host.isEmpty || path.isEmpty ? nil : URL(string: "https://\(host)/\(path)")
     }
 
-    /// URL de tous les remotes du dépôt (pour reconnaître les dépôts déjà clonés).
-    static func remoteURLs(of repo: URL) -> [String] {
+    /// Remotes du dépôt et leur URL (aussi pour reconnaître les dépôts déjà clonés).
+    static func remoteURLs(of repo: URL) -> [(name: String, url: String)] {
         ((try? run(["config", "--get-regexp", #"^remote\..*\.url$"#], in: repo)) ?? "")
-            .split(separator: "\n").compactMap { $0.split(separator: " ", maxSplits: 1).last.map(String.init) }
+            .split(separator: "\n").compactMap { line in
+                let parts = line.split(separator: " ", maxSplits: 1).map(String.init)
+                guard parts.count == 2 else { return nil }
+                return (String(parts[0].dropFirst("remote.".count).dropLast(".url".count)), parts[1])
+            }
     }
 
     /// Clone `url` dans `folder`/`name`.

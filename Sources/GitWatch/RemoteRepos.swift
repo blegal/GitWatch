@@ -39,7 +39,7 @@ final class RemoteCatalog {
         defer { isLoading = false }
         let urls = Monitor.shared.repos.map(\.url)
         let keysTask = Task.detached {
-            Set(urls.flatMap { Git.remoteURLs(of: $0) }.compactMap { Git.webURL(fromRemote: $0)?.repoKey })
+            Set(urls.flatMap { Git.remoteURLs(of: $0) }.compactMap { Git.webURL(fromRemote: $0.url)?.repoKey })
         }
         var all: [RemoteRepo] = []
         var errors: [String: String] = [:]

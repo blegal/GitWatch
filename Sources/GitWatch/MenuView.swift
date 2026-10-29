@@ -345,7 +345,24 @@ enum ExternalTool: String, CaseIterable, Identifiable {
         }
     }
 
-    private var application: URL? { NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) }
+    /// Application et icône, cherchées une fois puis gardées : chaque ligne du menu les demande à chaque affichage.
+    /// `reload()` (à chaque vérification) prend en compte les applications installées ou supprimées depuis.
+    @MainActor private static var cache: [ExternalTool: (application: URL?, icon: NSImage)] = [:]
+
+    @MainActor static func reload() { cache.removeAll() }
+
+    @MainActor private var resolved: (application: URL?, icon: NSImage) {
+        if let cached = Self.cache[self] { return cached }
+        let application = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier)
+        // Pour Claude, icône de l'app Claude si elle est installée, sinon celle du Terminal.
+        let iconSource = application ?? NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Terminal")
+        let icon = iconSource.map { NSWorkspace.shared.icon(forFile: $0.path) } ?? NSImage()
+        icon.size = NSSize(width: 20, height: 20)
+        Self.cache[self] = (application, icon)
+        return (application, icon)
+    }
+
+    @MainActor private var application: URL? { resolved.application }
 
     /// Claude Code (ligne de commande) : emplacements d'installation habituels.
     private static let claudeCommand: String? = {
@@ -354,15 +371,11 @@ enum ExternalTool: String, CaseIterable, Identifiable {
             .first { FileManager.default.isExecutableFile(atPath: $0) }
     }()
 
-    var isAvailable: Bool { self == .claude ? Self.claudeCommand != nil : application != nil }
+    @MainActor var isAvailable: Bool { self == .claude ? Self.claudeCommand != nil : application != nil }
 
-    /// Icône de l'application ; pour Claude, celle de l'app Claude si elle est installée, sinon celle du Terminal.
-    var icon: NSImage {
-        let url = application ?? NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Terminal")
-        return url.map { NSWorkspace.shared.icon(forFile: $0.path) } ?? NSImage()
-    }
+    @MainActor var icon: NSImage { resolved.icon }
 
-    func open(_ repo: URL) {
+    @MainActor func open(_ repo: URL) {
         if self == .claude {
             openClaude(in: repo)
         } else if let application {
