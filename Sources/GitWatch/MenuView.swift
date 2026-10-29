@@ -317,12 +317,13 @@ struct RepoActions: View {
 
 /// Applications proposées pour travailler sur un dépôt modifié.
 enum ExternalTool: String, CaseIterable, Identifiable {
-    case vscode, githubDesktop, claude
+    case vscode, zed, githubDesktop, claude
     var id: String { rawValue }
 
     var help: String {
         switch self {
         case .vscode: "Ouvrir dans VS Code"
+        case .zed: "Ouvrir dans Zed"
         case .githubDesktop: "Ouvrir dans GitHub Desktop"
         case .claude: "Ouvrir Claude Code dans le Terminal"
         }
@@ -331,6 +332,7 @@ enum ExternalTool: String, CaseIterable, Identifiable {
     private var bundleIdentifier: String {
         switch self {
         case .vscode: "com.microsoft.VSCode"
+        case .zed: "dev.zed.Zed"
         case .githubDesktop: "com.github.GitHubClient"
         case .claude: "com.anthropic.claudefordesktop"
         }
