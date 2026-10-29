@@ -7,13 +7,16 @@
     <key>CFBundleIdentifier</key><string>local.GitWatch</string>
     <key>CFBundleExecutable</key><string>GitWatch</string>
     <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>0.1</string>
-    <key>CFBundleVersion</key><string>1</string>
+    <key>CFBundleShortVersionString</key><string>0.2.0</string>
+    <key>CFBundleVersion</key><string>2</string>
     <key>CFBundleDevelopmentRegion</key><string>fr</string>
     <key>CFBundleLocalizations</key><array><string>fr</string></array>
     <key>LSMinimumSystemVersion</key><string>26.0</string>
     <key>LSApplicationCategoryType</key><string>public.app-category.developer-tools</string>
     <key>LSUIElement</key><true/>
+    <key>CFBundleIconFile</key><string>AppIcon</string>
+    <key>UpdateRepository</key><string>blegal/GitWatch</string>
+    <key>UpdatePublicKey</key><string>cA3N3Su/+hSRo8OrdVQbxAX/UswnfiE0FI2ZxiqO0Jg=</string>
     <key>NSHighResolutionCapable</key><true/>
 </dict>
 </plist>

@@ -1,14 +1,16 @@
 import SwiftUI
+import UpdateKit
 
 /// Fenêtre de l'application : dépôts, dossiers explorés, réglages généraux.
 struct SettingsView: View {
     enum Pane: String, CaseIterable, Identifiable {
-        case repos, folders, general
+        case repos, folders, remote, general
         var id: String { rawValue }
         var title: String {
             switch self {
             case .repos: "Dépôts"
             case .folders: "Dossiers"
+            case .remote: "À cloner"
             case .general: "Général"
             }
         }
@@ -16,27 +18,29 @@ struct SettingsView: View {
             switch self {
             case .repos: "arrow.triangle.branch"
             case .folders: "folder.badge.gearshape"
+            case .remote: "icloud.and.arrow.down"
             case .general: "gearshape"
             }
         }
     }
 
-    @State private var pane: Pane = .repos
+    @Environment(WindowRouter.self) private var router
 
     var body: some View {
         NavigationSplitView {
-            List(Pane.allCases, selection: $pane) { pane in
+            @Bindable var router = router
+            List(Pane.allCases, selection: $router.pane) { pane in
                 Label(pane.title, systemImage: pane.symbol).tag(pane)
             }
             .navigationSplitViewColumnWidth(170)
         } detail: {
-            switch pane {
+            switch router.pane {
             case .repos: ReposPane()
             case .folders: FoldersPane()
+            case .remote: RemotePane()
             case .general: GeneralPane()
             }
         }
-        .frame(minWidth: 680, minHeight: 420)
     }
 }
 
@@ -150,7 +154,9 @@ struct StateLabel: View {
         case .error: return ("Erreur", .red)
         case .toPull: return (status.ahead > 0 ? "↓\(status.behind) ↑\(status.ahead) divergé" : "↓\(status.behind) pull", .orange)
         case .toPush: return ("↑\(status.ahead) push", .blue)
-        case .modified: return ("+\(status.added) −\(status.removed)", .indigo)
+        case .modified:
+            if !status.isClean { return ("+\(status.added) −\(status.removed)", .indigo) }
+            return (status.stashes > 0 ? "Stash en attente" : "Branche non poussée", .indigo)
         case .pulled: return ("Pull aujourd’hui", .green)
         case .upToDate: return (status.upstream == nil ? "Sans amont" : "À jour", status.upstream == nil ? .secondary : .green)
         case .unknown: return ("—", .secondary)
@@ -263,15 +269,192 @@ struct GeneralPane: View {
             .onChange(of: preferences.notifyBehind || preferences.notifyAutoPull) { _, on in
                 if on { Notifier.requestAuthorizationIfNeeded() }
             }
+            AccountsSection()
             Section {
                 Toggle("Ouvrir GitWatch à l’ouverture de session", isOn: $launchAtLogin)
                     .onChange(of: launchAtLogin) { _, value in
                         preferences.launchAtLogin = value
                         launchAtLogin = preferences.launchAtLogin
                     }
+                LabeledContent("Version \(Updater.shared.currentVersion.description)") {
+                    Button("Rechercher les mises à jour…") { Updater.shared.checkForUpdates(nil) }
+                }
             }
         }
         .formStyle(.grouped)
         .navigationTitle("Général")
+    }
+}
+
+// MARK: - Comptes distants
+
+/// GitHub (via GitHub CLI) et les serveurs GitLab de vos dépôts (un jeton chacun) pour proposer les dépôts à cloner.
+struct AccountsSection: View {
+    @Environment(Monitor.self) private var monitor
+
+    var body: some View {
+        Section {
+            LabeledContent("GitHub", value: "via GitHub CLI (gh auth login)")
+            ForEach(RemoteCatalog.gitlabHosts(in: monitor.repos), id: \.self) { host in
+                GitLabTokenRow(host: host)
+            }
+        } header: {
+            Text("Comptes distants")
+        } footer: {
+            Text("Pour la liste des dépôts à cloner. Les serveurs GitLab sont ceux de vos dépôts ; chaque jeton (portée read_api) est gardé dans le trousseau.")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+}
+
+struct GitLabTokenRow: View {
+    let host: String
+    @State private var token = ""
+    @State private var hasToken = false
+
+    var body: some View {
+        LabeledContent(host) {
+            HStack {
+                SecureField("Jeton", text: $token, prompt: Text(hasToken ? "Enregistré dans le trousseau" : "Jeton d’accès (glpat-…)"))
+                    .labelsHidden()
+                    .frame(maxWidth: 260)
+                Button(hasToken && token.isEmpty ? "Supprimer" : "Enregistrer") {
+                    Keychain.setToken(token.isEmpty ? nil : token.trimmed, for: host)
+                    token = ""
+                    hasToken = Keychain.token(for: host) != nil
+                }
+                .disabled(!hasToken && token.isEmpty)
+                if !hasToken, let url = URL(string: "https://\(host)/-/user_settings/personal_access_tokens?name=GitWatch&scopes=read_api") {
+                    Link("Créer…", destination: url)
+                }
+            }
+        }
+        .task { hasToken = Keychain.token(for: host) != nil }
+    }
+}
+
+// MARK: - À cloner
+
+/// Dépôts des comptes GitHub et GitLab absents de ce Mac.
+struct RemotePane: View {
+    @Environment(Preferences.self) private var preferences
+    @State private var catalog = RemoteCatalog.shared
+    @State private var filter = ""
+    @State private var showArchived = false
+    @State private var showShared = false
+    @State private var showForks = true
+    @State private var showIgnored = false
+
+    private var repos: [RemoteRepo] {
+        catalog.missing.filter { repo in
+            (showArchived || !repo.archived) && (showShared || repo.owned) && (showForks || !repo.fork)
+                && (showIgnored || !preferences.ignoredRemotes.contains(repo.id))
+                && (filter.isEmpty || repo.fullName.localizedCaseInsensitiveContains(filter))
+        }
+    }
+
+    private var destination: URL? {
+        (preferences.cloneFolder ?? preferences.roots.first?.path).map { URL(fileURLWithPath: $0) }
+    }
+
+    var body: some View {
+        @Bindable var preferences = preferences
+        Table(repos) {
+            TableColumn("Dépôt") { repo in
+                VStack(alignment: .leading, spacing: 1) {
+                    HStack(spacing: 5) {
+                        Text(repo.name).fontWeight(.medium)
+                        if repo.archived { tag("archivé") }
+                        if repo.fork { tag("fork") }
+                        if !repo.owned { tag("partagé") }
+                    }
+                    if let error = catalog.cloneErrors[repo.id] {
+                        Text(error).font(.caption).foregroundStyle(.red).lineLimit(2)
+                    } else {
+                        Text("\(RepoSummary.hostName(repo.web)) · \(repo.fullName)").font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    }
+                }
+                .opacity(preferences.ignoredRemotes.contains(repo.id) ? 0.5 : 1)
+                .contextMenu {
+                    Button("Ouvrir sur \(RepoSummary.hostName(repo.web))") { NSWorkspace.shared.open(repo.web) }
+                    Button(preferences.ignoredRemotes.contains(repo.id) ? "Ne plus ignorer" : "Ignorer") { toggleIgnored(repo) }
+                }
+            }
+            .width(min: 220, ideal: 320)
+            TableColumn("Activité") { repo in
+                Text(repo.updated.map { $0.formatted(.relative(presentation: .named)) } ?? "—").foregroundStyle(.secondary)
+            }
+            .width(min: 90, ideal: 120)
+            TableColumn("") { repo in
+                HStack(spacing: 6) {
+                    if catalog.cloning.contains(repo.id) {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Button("Cloner") { if let destination { Task { await catalog.clone(repo, into: destination) } } }
+                            .controlSize(.small)
+                            .disabled(destination == nil)
+                    }
+                    Button { toggleIgnored(repo) } label: {
+                        Image(systemName: preferences.ignoredRemotes.contains(repo.id) ? "eye" : "eye.slash")
+                    }
+                    .buttonStyle(.borderless)
+                    .help(preferences.ignoredRemotes.contains(repo.id) ? "Ne plus ignorer" : "Ignorer ce dépôt")
+                }
+            }
+            .width(110)
+        }
+        .overlay {
+            if catalog.isLoading && catalog.remote.isEmpty {
+                ProgressView("Interrogation des serveurs…")
+            } else if repos.isEmpty, catalog.lastLoad != nil {
+                ContentUnavailableView("Rien à cloner", systemImage: "checkmark.icloud",
+                                       description: Text("Tous les dépôts de vos comptes sont présents sur ce Mac."))
+            }
+        }
+        .searchable(text: $filter, placement: .toolbar, prompt: "Filtrer")
+        .safeAreaInset(edge: .bottom) {
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(catalog.errors.sorted(by: { $0.key < $1.key }), id: \.key) { source, message in
+                    Label("\(source) : \(message)", systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(.red)
+                }
+                HStack {
+                    Picker("Cloner dans", selection: Binding(get: { destination?.path ?? "" }, set: { preferences.cloneFolder = $0 })) {
+                        ForEach(preferences.roots) { root in
+                            Text((root.path as NSString).abbreviatingWithTildeInPath).tag(root.path)
+                        }
+                    }
+                    .fixedSize()
+                    Spacer()
+                    Text(repos.count == 1 ? "1 dépôt" : "\(repos.count) dépôts").font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(.bar)
+        }
+        .toolbar {
+            ToolbarItemGroup {
+                Menu {
+                    Toggle("Dépôts archivés", isOn: $showArchived)
+                    Toggle("Dépôts partagés avec moi", isOn: $showShared)
+                    Toggle("Forks", isOn: $showForks)
+                    Toggle("Dépôts ignorés", isOn: $showIgnored)
+                } label: { Label("Afficher", systemImage: "line.3.horizontal.decrease.circle") }
+                Button { Task { await catalog.load() } } label: { Label("Actualiser", systemImage: "arrow.clockwise") }
+                    .disabled(catalog.isLoading)
+            }
+        }
+        .navigationTitle("À cloner")
+        .task { if catalog.lastLoad == nil { await catalog.load() } }
+    }
+
+    private func tag(_ text: String) -> some View {
+        Text(text).font(.caption2).foregroundStyle(.secondary)
+            .padding(.horizontal, 5).padding(.vertical, 1)
+            .background(.quaternary, in: .capsule)
+    }
+
+    private func toggleIgnored(_ repo: RemoteRepo) {
+        if preferences.ignoredRemotes.contains(repo.id) { preferences.ignoredRemotes.remove(repo.id) } else { preferences.ignoredRemotes.insert(repo.id) }
     }
 }

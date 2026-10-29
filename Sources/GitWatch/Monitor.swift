@@ -1,4 +1,5 @@
-import Foundation
+import AppKit
+import Network
 import UserNotifications
 
 /// Dépôt trouvé dans un des dossiers explorés.
@@ -39,7 +40,7 @@ enum RepoCategory: Int, CaseIterable, Identifiable {
         if status.error != nil { self = .error }
         else if status.behind > 0 { self = .toPull }
         else if status.ahead > 0 { self = .toPush }
-        else if !status.isClean { self = .modified }
+        else if status.hasLocalWork { self = .modified }
         else if let pull = repo.lastPull, Calendar.current.isDateInToday(pull) { self = .pulled }
         else { self = .upToDate }
     }
@@ -61,6 +62,8 @@ final class Monitor {
 
     private let preferences = Preferences.shared
     private var timer: Timer?
+    private let network = NWPathMonitor()
+    private var online = true
 
     var followedRepos: [Repo] { repos.filter { preferences.settings(for: $0.id).followed } }
     var attentionCount: Int { followedRepos.filter { RepoCategory($0).needsAttention }.count }
@@ -69,6 +72,30 @@ final class Monitor {
         Notifier.requestAuthorizationIfNeeded()
         schedule()
         Task { await refresh(fetch: true) }
+        // Au réveil du Mac et au retour du réseau, on vérifie sans attendre la prochaine échéance.
+        NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { _ in
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(15))
+                await Monitor.shared.refreshIfStale()
+            }
+        }
+        network.pathUpdateHandler = { path in
+            let satisfied = path.status == .satisfied
+            Task { @MainActor in
+                let monitor = Monitor.shared
+                defer { monitor.online = satisfied }
+                guard satisfied, !monitor.online else { return }
+                try? await Task.sleep(for: .seconds(5))
+                await monitor.refreshIfStale()
+            }
+        }
+        network.start(queue: .global(qos: .utility))
+    }
+
+    /// Vérifie si la dernière vérification date de plus de deux minutes.
+    func refreshIfStale() async {
+        if let lastCheck, Date().timeIntervalSince(lastCheck) < 120 { return }
+        await refresh(fetch: true)
     }
 
     /// (Re)programme la vérification périodique selon l'intervalle choisi.
@@ -186,8 +213,8 @@ final class Monitor {
         }
     }
 
-    func pushAll() async {
-        let candidates = pushable
+    func pushAll(_ selection: [Repo]? = nil) async {
+        let candidates = selection ?? pushable
         await withTaskGroup(of: Void.self) { group in
             for repo in candidates { group.addTask { await self.push(repo) } }
         }
@@ -202,8 +229,8 @@ final class Monitor {
     }
 
     /// Tire tous les dépôts en retard qui peuvent l'être sans risque (comme le tirage automatique).
-    func pullAll() async {
-        let candidates = safelyPullable
+    func pullAll(_ selection: [Repo]? = nil) async {
+        let candidates = selection ?? safelyPullable
         await withTaskGroup(of: Void.self) { group in
             for repo in candidates { group.addTask { await self.pull(repo) } }
         }

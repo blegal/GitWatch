@@ -1,0 +1,15 @@
+{
+  "originHash" : "6a15fc226bc2345aaa4e022cbb5768c2a8392e08556af3aae4af43b804419c59",
+  "pins" : [
+    {
+      "identity" : "ibaobab",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/blegal/iBaobab",
+      "state" : {
+        "branch" : "main",
+        "revision" : "3050888ddca285ba63d4a8f4735f55543f2ec12c"
+      }
+    }
+  ],
+  "version" : 3
+}
