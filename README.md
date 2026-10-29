@@ -21,7 +21,7 @@ Nécessite macOS 26+ et Xcode (Swift 6). `UNIVERSAL=1`, `VERSION`, `BUILD_NUMBER
 - **Fusions manuelles** : pour un dépôt divergé ou dont le pull a été refusé, le survol propose d'ouvrir GitHub Desktop (s'il est installé).
 - **Détails** : fichiers non suivis, stashes en attente, commits non poussés sur d'autres branches (y compris les branches jamais poussées), branche courante différente de la branche par défaut (en orange, avec le retard de `main`). Au survol, la bulle d'aide liste les commits à récupérer (`git log HEAD..@{upstream}`).
 - **Réveil et réseau** : une vérification est lancée au réveil du Mac et au retour du réseau (si la dernière date de plus de deux minutes).
-- **Dépôt modifié** : le survol propose ↓ Pull ou ↑ Push (s'ils sont possibles), puis VS Code, GitHub Desktop et Claude (Claude Code lancé dans le Terminal, dans le dossier du dépôt). Seules les applications installées apparaissent.
+- **Dépôt modifié** : le survol propose ↓ Pull ou ↑ Push (s'ils sont possibles), puis VS Code, Zed, GitHub Desktop et Claude (Claude Code lancé dans le Terminal, dans le dossier du dépôt). Seules les applications installées apparaissent.
 
 ## Menu de la barre des menus
 
@@ -30,7 +30,7 @@ L'icône montre le nombre de pull à faire et de dépôts en erreur (désactivab
 - **Liste** : une pastille de couleur par dépôt et un résumé par état ; les dépôts à jour sont repliés.
 - **Par action** : sections Erreurs, Pull à faire, Push à faire, Modifications locales, Pull du jour, À jour (repliée).
 
-Clic sur une ligne : ouvre le dossier dans le Finder. Clic droit : Pull, Push, commits à récupérer, ouvrir dans VS Code, GitHub Desktop, Claude Code, le Finder, le Terminal ou sur GitHub/GitLab, copier le chemin, ne plus suivre.
+Clic sur une ligne : ouvre le dossier dans le Finder. Clic droit : Pull, Push, commits à récupérer, ouvrir dans VS Code, Zed, GitHub Desktop, Claude Code, le Finder, le Terminal ou sur GitHub/GitLab, copier le chemin, ne plus suivre.
 
 ## Fenêtre
 
