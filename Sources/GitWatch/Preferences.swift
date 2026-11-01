@@ -23,6 +23,29 @@ enum MenuLayout: String, Codable, CaseIterable, Identifiable {
     var title: String { self == .list ? "Liste" : "Par action" }
 }
 
+/// Police de l'interface (menu et tableau de bord).
+enum FontChoice: String, Codable, CaseIterable, Identifiable {
+    case system, rounded, monospaced, serif, dyslexic, custom
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .system: "Système (SF Pro)"
+        case .rounded: "Arrondie (SF Rounded)"
+        case .monospaced: "Chasse fixe (SF Mono)"
+        case .serif: "Serif (New York)"
+        case .dyslexic: "Dyslexie (OpenDyslexic)"
+        case .custom: "Autre police…"
+        }
+    }
+}
+
+/// Espacement des lignes du menu et du tableau de bord.
+enum Density: String, Codable, CaseIterable, Identifiable {
+    case comfortable, compact
+    var id: String { rawValue }
+    var title: String { self == .comfortable ? "Confortable" : "Compacte" }
+}
+
 /// Réglages de l'application (UserDefaults).
 @MainActor @Observable
 final class Preferences {
@@ -42,6 +65,13 @@ final class Preferences {
     /// Dépôts distants à ne plus proposer (clés « hôte/propriétaire/nom »).
     var ignoredRemotes: Set<String> { didSet { save(ignoredRemotes, "ignoredRemotes") } }
 
+    /// Apparence : police, taille de référence (le corps de texte, 13 pt par défaut), densité, animations.
+    var fontChoice: FontChoice { didSet { defaults.set(fontChoice.rawValue, forKey: "fontChoice") } }
+    var customFontFamily: String { didSet { defaults.set(customFontFamily, forKey: "customFontFamily") } }
+    var fontSize: Double { didSet { defaults.set(fontSize, forKey: "fontSize") } }
+    var density: Density { didSet { defaults.set(density.rawValue, forKey: "density") } }
+    var animations: Bool { didSet { defaults.set(animations, forKey: "animations") } }
+
     static let intervals = [5, 10, 15, 30, 60, 120, 240]
 
     private init() {
@@ -56,6 +86,11 @@ final class Preferences {
         showBadge = defaults.object(forKey: "showBadge") as? Bool ?? true
         cloneFolder = defaults.string(forKey: "cloneFolder")
         ignoredRemotes = Self.load("ignoredRemotes") ?? []
+        fontChoice = FontChoice(rawValue: defaults.string(forKey: "fontChoice") ?? "") ?? .system
+        customFontFamily = defaults.string(forKey: "customFontFamily") ?? "Avenir Next"
+        fontSize = defaults.object(forKey: "fontSize") as? Double ?? 13
+        density = Density(rawValue: defaults.string(forKey: "density") ?? "") ?? .comfortable
+        animations = defaults.object(forKey: "animations") as? Bool ?? true
     }
 
     func settings(for path: String) -> RepoSettings { repos[path] ?? RepoSettings() }

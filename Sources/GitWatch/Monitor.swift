@@ -59,6 +59,8 @@ final class Monitor {
     private(set) var isChecking = false
     /// Dépôts en cours de pull ou de push manuel.
     private(set) var busy: Set<String> = []
+    /// Avancement de la vérification en cours (dépôts vérifiés, dépôts à vérifier).
+    private(set) var progress: (done: Int, total: Int)?
 
     private let preferences = Preferences.shared
     private var timer: Timer?
@@ -134,8 +136,13 @@ final class Monitor {
         // redessine le menu et l'icône de la barre des menus.
         var received: [Outcome] = []
         var lastFlush = Date()
+        var done = 0
+        progress = (0, jobs.count)
+        defer { progress = nil }
         func flush() {
             guard !received.isEmpty else { return }
+            done += received.count
+            progress = (done, jobs.count)
             var updated = repos
             for outcome in received {
                 guard let index = updated.firstIndex(where: { $0.id == outcome.url.path }) else { continue }

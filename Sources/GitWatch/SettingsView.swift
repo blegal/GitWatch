@@ -4,13 +4,14 @@ import UpdateKit
 /// Fenêtre de l'application : dépôts, dossiers explorés, réglages généraux.
 struct SettingsView: View {
     enum Pane: String, CaseIterable, Identifiable {
-        case repos, folders, remote, general
+        case repos, folders, remote, appearance, general
         var id: String { rawValue }
         var title: String {
             switch self {
             case .repos: "Dépôts"
             case .folders: "Dossiers"
             case .remote: "À cloner"
+            case .appearance: "Apparence"
             case .general: "Général"
             }
         }
@@ -19,6 +20,7 @@ struct SettingsView: View {
             case .repos: "arrow.triangle.branch"
             case .folders: "folder.badge.gearshape"
             case .remote: "icloud.and.arrow.down"
+            case .appearance: "textformat"
             case .general: "gearshape"
             }
         }
@@ -38,6 +40,7 @@ struct SettingsView: View {
             case .repos: ReposPane()
             case .folders: FoldersPane()
             case .remote: RemotePane()
+            case .appearance: AppearancePane()
             case .general: GeneralPane()
             }
         }

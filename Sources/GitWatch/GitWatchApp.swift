@@ -45,6 +45,8 @@ struct MenuBarLabel: View {
     var body: some View {
         HStack(spacing: 3) {
             Image(systemName: count > 0 ? "arrow.triangle.branch" : "checkmark.circle")
+                // Rebond quand de nouveaux dépôts demandent attention.
+                .symbolEffect(.bounce, value: count)
             if count > 0 { Text("\(count)").monospacedDigit() }
         }
         .accessibilityLabel(count > 0 ? "GitWatch : \(count) dépôts demandent votre attention" : "GitWatch : tout est à jour")

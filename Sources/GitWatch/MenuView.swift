@@ -30,38 +30,57 @@ struct MenuView: View {
             Divider()
             footer
         }
-        .frame(width: 340)
+        .frame(width: MenuMetrics.width)
+        // Les dépôts qui changent de catégorie glissent vers leur nouvelle section.
+        .animation(Motion.animation(Motion.spring), value: repos.map { "\($0.id)\(RepoCategory($0).rawValue)" })
     }
 
     // MARK: En-tête et pied
 
     private var header: some View {
         HStack(spacing: 10) {
-            Image(systemName: "arrow.triangle.branch")
-                .font(.title3)
-                .foregroundStyle(.secondary)
+            HealthRing(repos: repos)
+                .frame(width: 30, height: 30)
             VStack(alignment: .leading, spacing: 1) {
-                Text("Dépôts Git").font(.headline)
-                Text(subtitle).font(.caption).foregroundStyle(.secondary)
+                Text("Dépôts Git").font(.app(.headline))
+                Text(subtitle).font(.app(.caption)).foregroundStyle(.secondary)
+                    .contentTransition(.numericText())
             }
             Spacer()
             Button { show(.dashboard) } label: { Image(systemName: "macwindow") }
                 .buttonStyle(.borderless)
                 .help("Ouvrir le tableau de bord")
-            if monitor.isChecking {
-                ProgressView().controlSize(.small)
-            } else {
-                Button { Task { await monitor.refresh(fetch: true) } } label: { Image(systemName: "arrow.clockwise") }
-                    .buttonStyle(.borderless)
-                    .help("Vérifier maintenant")
+            Button { Task { await monitor.refresh(fetch: true) } } label: {
+                Image(systemName: "arrow.clockwise")
+                    .symbolEffect(.rotate, options: .repeat(.continuous), isActive: monitor.isChecking && Motion.enabled)
             }
+            .buttonStyle(.borderless)
+            .disabled(monitor.isChecking)
+            .help(monitor.isChecking ? "Vérification en cours…" : "Vérifier maintenant")
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
+        .overlay(alignment: .bottom) { progressBar }
+    }
+
+    /// Fine barre d'avancement sous l'en-tête pendant une vérification.
+    @ViewBuilder
+    private var progressBar: some View {
+        if let progress = monitor.progress, progress.total > 0 {
+            GeometryReader { proxy in
+                Capsule()
+                    .fill(.tint)
+                    .frame(width: proxy.size.width * Double(progress.done) / Double(progress.total))
+                    .animation(Motion.animation(.easeOut(duration: 0.4)), value: progress.done)
+            }
+            .frame(height: 2)
+            .transition(.opacity)
+        }
     }
 
     private var subtitle: String {
         let count = repos.count == 1 ? "1 dépôt" : "\(repos.count) dépôts"
+        if let progress = monitor.progress { return "Vérification… \(progress.done)/\(progress.total)" }
         guard let last = monitor.lastCheck else { return monitor.isChecking ? "Vérification…" : count }
         return "Vérifié \(last.formatted(.relative(presentation: .named))) · \(count)"
     }
@@ -91,7 +110,7 @@ struct MenuView: View {
             .imageScale(.large)
         }
         .buttonStyle(.borderless)
-        .font(.callout)
+        .font(.app(.callout))
         .padding(.horizontal, 14)
         .padding(.vertical, 9)
     }
@@ -104,10 +123,10 @@ struct MenuView: View {
 
     private var empty: some View {
         VStack(spacing: 8) {
-            Image(systemName: "folder.badge.questionmark").font(.largeTitle).foregroundStyle(.tertiary)
-            Text(preferences.roots.isEmpty ? "Aucun dossier à explorer" : "Aucun dépôt suivi").font(.headline)
+            Image(systemName: "folder.badge.questionmark").font(.app(.largeTitle)).foregroundStyle(.tertiary)
+            Text(preferences.roots.isEmpty ? "Aucun dossier à explorer" : "Aucun dépôt suivi").font(.app(.headline))
             Text("Choisissez les dossiers où chercher vos dépôts dans les réglages.")
-                .font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                .font(.app(.callout)).foregroundStyle(.secondary).multilineTextAlignment(.center)
         }
         .padding(24)
     }
@@ -129,7 +148,7 @@ struct MenuView: View {
             }
             .padding(.horizontal, 14)
             .padding(.bottom, 6)
-            ForEach(visible) { RepoRow(repo: $0, style: .dot) }
+            ForEach(visible) { RepoRow(repo: $0, style: .dot).transition(.rowAppear) }
             if hidden > 0 { disclosure(hidden) }
         }
     }
@@ -138,7 +157,8 @@ struct MenuView: View {
     private func summaryPill(_ count: Int, _ label: String, _ color: Color) -> some View {
         if count > 0 {
             Text("\(count) \(label)")
-                .font(.caption)
+                .font(.app(.caption))
+                .contentTransition(.numericText(value: Double(count)))
                 .padding(.horizontal, 7)
                 .padding(.vertical, 2)
                 .foregroundStyle(color)
@@ -152,8 +172,12 @@ struct MenuView: View {
         let groups = Dictionary(grouping: repos, by: RepoCategory.init)
         return ForEach(RepoCategory.allCases) { category in
             if let members = groups[category], !members.isEmpty {
-                Text("\(category.title) · \(members.count)")
-                    .font(.caption.weight(.medium))
+                HStack(spacing: 6) {
+                    PulsingDot(color: category.color, pulsing: category.needsAttention)
+                    Text("\(category.title) · \(members.count)")
+                        .contentTransition(.numericText(value: Double(members.count)))
+                }
+                    .font(.app(.caption, weight: .medium))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 14)
                     .padding(.top, 8)
@@ -161,7 +185,7 @@ struct MenuView: View {
                 if category == .upToDate && !showUpToDate {
                     disclosure(members.count)
                 } else {
-                    ForEach(members) { RepoRow(repo: $0, style: .icon) }
+                    ForEach(members) { RepoRow(repo: $0, style: .icon).transition(.rowAppear) }
                 }
             }
         }
@@ -169,13 +193,14 @@ struct MenuView: View {
 
     private func disclosure(_ count: Int) -> some View {
         Button {
-            withAnimation(.snappy) { showUpToDate.toggle() }
+            Motion.perform(.snappy) { showUpToDate.toggle() }
         } label: {
             HStack(spacing: 6) {
-                Image(systemName: "chevron.right").font(.caption2.weight(.semibold))
+                Image(systemName: "chevron.right").font(.app(.caption2, weight: .semibold))
+                    .rotationEffect(.degrees(showUpToDate ? 90 : 0))
                 Text(preferences.layout == .list ? "\(count) autres à jour" : "Afficher")
             }
-            .font(.callout)
+            .font(.app(.callout))
             .foregroundStyle(.secondary)
             .padding(.horizontal, 14)
             .padding(.vertical, 5)
@@ -191,7 +216,12 @@ struct RepoRow: View {
     let repo: Repo
     let style: Style
     @Environment(Monitor.self) private var monitor
+    @Environment(Preferences.self) private var preferences
     @State private var hovered = false
+    /// Surbrillance passagère : verte après un pull, orange quand de nouveaux commits arrivent.
+    @State private var flash: Color?
+    /// Change à chaque pull réussi : fait rebondir le symbole.
+    @State private var pulls = 0
 
     private var category: RepoCategory { RepoCategory(repo) }
     private var status: RepoStatus? { repo.status }
@@ -205,30 +235,51 @@ struct RepoRow: View {
                     if let status { BranchLabel(status: status) }
                 }
                 if let error = status?.error {
-                    Text(error).font(.caption).foregroundStyle(.red).lineLimit(2).help(error)
+                    Text(error).font(.app(.caption)).foregroundStyle(.red).lineLimit(2).help(error)
                 } else if let error = repo.pullError {
-                    Text(error).font(.caption).foregroundStyle(.orange).lineLimit(2).help(error)
+                    Text(error).font(.app(.caption)).foregroundStyle(.orange).lineLimit(2).help(error)
                 }
             }
             Spacer(minLength: 6)
-            if monitor.busy.contains(repo.id) {
-                ProgressView().controlSize(.mini)
-            } else if hovered, let action = quickAction {
-                action
-            } else {
-                RepoCounters(repo: repo)
+            Group {
+                if monitor.busy.contains(repo.id) {
+                    ProgressView().controlSize(.mini)
+                } else if hovered, let action = quickAction {
+                    action.transition(.move(edge: .trailing).combined(with: .opacity))
+                } else {
+                    RepoCounters(repo: repo).transition(.opacity)
+                }
             }
         }
-        .font(.callout)
+        .font(.app(.callout))
         .padding(.horizontal, 14)
-        .padding(.vertical, 5)
-        .background(hovered ? Color.primary.opacity(0.06) : .clear, in: .rect(cornerRadius: 6))
+        .padding(.vertical, preferences.density == .compact ? 2 : 5)
+        .background {
+            RoundedRectangle(cornerRadius: 7)
+                .fill(flash?.opacity(0.18) ?? (hovered ? Color.primary.opacity(0.06) : .clear))
+        }
+        .offset(x: hovered && Motion.enabled ? 2 : 0)
         .padding(.horizontal, 5)
         .contentShape(.rect)
-        .onHover { hovered = $0 }
+        .onHover { hovering in Motion.perform(.snappy(duration: 0.2)) { hovered = hovering } }
+        .onChange(of: repo.lastPull) { old, new in
+            guard new != nil, new != old else { return }
+            pulls += 1
+            highlight(.green)
+        }
+        .onChange(of: status?.behind ?? 0) { old, new in
+            if new > old { highlight(.orange) }
+        }
         .onTapGesture { NSWorkspace.shared.open(repo.url) }
         .contextMenu { RepoActions(repo: repo) }
         .help(RepoSummary.tooltip(repo))
+    }
+
+    /// Allume brièvement la ligne puis l'éteint en fondu.
+    private func highlight(_ color: Color) {
+        guard Motion.enabled else { return }
+        flash = color
+        withAnimation(.easeOut(duration: 1.2).delay(0.3)) { flash = nil }
     }
 
     /// Boutons proposés au survol. Dépôt modifié : Pull ou Push s'ils sont possibles, puis VS Code, GitHub Desktop, Claude.
@@ -278,7 +329,11 @@ struct RepoRow: View {
         case .dot:
             Circle().fill(category.color).frame(width: 7, height: 7).frame(width: 16)
         case .icon:
-            Image(systemName: category.symbol(repo)).foregroundStyle(category.color).frame(width: 16)
+            Image(systemName: category.symbol(repo))
+                .foregroundStyle(category.color)
+                .contentTransition(.symbolEffect(.replace))
+                .symbolEffect(.bounce, value: pulls)
+                .frame(width: 16)
         }
     }
 }
@@ -442,5 +497,12 @@ struct UpdateIndicator: View {
         case .available(let version): "Version \(version) disponible : cliquer pour l’installer"
         case .installing: "Installation de la mise à jour, puis redémarrage…"
         }
+    }
+}
+
+extension AnyTransition {
+    /// Apparition d'une ligne : léger zoom et fondu ; disparition en fondu.
+    static var rowAppear: AnyTransition {
+        .asymmetric(insertion: .scale(scale: 0.96, anchor: .top).combined(with: .opacity), removal: .opacity)
     }
 }

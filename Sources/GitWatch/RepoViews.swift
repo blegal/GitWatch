@@ -37,7 +37,7 @@ struct BranchLabel: View {
                     Text("· \(main) ↓\(status.defaultBehind)").foregroundStyle(.orange)
                 }
             }
-            .font(.caption)
+            .font(.app(.caption))
             .lineLimit(1)
             .help(status.onOtherBranch ? "Vous n’êtes pas sur \(status.defaultBranch ?? "la branche par défaut")."
                   + (status.defaultBehind > 0 ? " \(status.defaultBranch ?? "") a \(status.defaultBehind) commit(s) à récupérer." : "") : branch)
@@ -49,16 +49,17 @@ struct BranchLabel: View {
 struct RepoCounters: View {
     let repo: Repo
 
+    // Chiffres sans séparateur de milliers : l'espace fine insécable manque à certaines polices (OpenDyslexic).
     var body: some View {
         HStack(spacing: 6) {
             if let status = repo.status {
                 let category = RepoCategory(repo)
-                if status.behind > 0 { Text("↓\(status.behind)") }
-                if status.ahead > 0 { Text("↑\(status.ahead)") }
+                if status.behind > 0 { Text("↓" + String(status.behind)).contentTransition(.numericText(value: Double(status.behind))) }
+                if status.ahead > 0 { Text("↑" + String(status.ahead)).contentTransition(.numericText(value: Double(status.ahead))) }
                 if status.added > 0 || status.removed > 0 {
                     HStack(spacing: 3) {
-                        Text("+\(status.added)").foregroundStyle(.green)
-                        Text("−\(status.removed)").foregroundStyle(.red)
+                        Text("+" + String(status.added)).foregroundStyle(.green).contentTransition(.numericText(value: Double(status.added)))
+                        Text("−" + String(status.removed)).foregroundStyle(.red).contentTransition(.numericText(value: Double(status.removed)))
                     }
                 } else if status.changedFiles > status.untracked {
                     let n = status.changedFiles - status.untracked
@@ -80,7 +81,7 @@ struct RepoCounters: View {
                 }
             }
         }
-        .font(.caption.monospacedDigit())
+        .font(.app(.caption).monospacedDigit())
         .foregroundStyle(.secondary)
         .lineLimit(1)
         // Les compteurs gardent toujours leur largeur : c'est le nom qui se tronque.

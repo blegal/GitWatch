@@ -25,6 +25,7 @@ struct DashboardView: View {
         } detail: {
             detail
         }
+        .font(.app(.body))
         .searchable(text: $search, placement: .toolbar, prompt: "Filtrer")
         .toolbar {
             ToolbarItemGroup {
@@ -38,12 +39,13 @@ struct DashboardView: View {
                     .labelStyle(.titleAndIcon)
                     .disabled(pushable == 0)
                     .help("Push des dépôts en avance et à jour avec le serveur.")
-                if monitor.isChecking {
-                    ProgressView().controlSize(.small)
-                } else {
-                    Button { Task { await monitor.refresh(fetch: true) } } label: { Label("Vérifier", systemImage: "arrow.clockwise") }
-                        .help("Vérifier maintenant")
+                Button { Task { await monitor.refresh(fetch: true) } } label: {
+                    Label(monitor.progress.map { "\($0.done)/\($0.total)" } ?? "Vérifier", systemImage: "arrow.clockwise")
+                        .symbolEffect(.rotate, options: .repeat(.continuous), isActive: monitor.isChecking && Motion.enabled)
+                        .contentTransition(.numericText())
                 }
+                .disabled(monitor.isChecking)
+                .help(monitor.isChecking ? "Vérification en cours…" : "Vérifier maintenant")
             }
         }
     }
@@ -53,6 +55,16 @@ struct DashboardView: View {
     private var sidebar: some View {
         let counts = Dictionary(grouping: monitor.followedRepos, by: RepoCategory.init).mapValues(\.count)
         return List(selection: Binding(get: { showAll ? nil : filter }, set: { showAll = $0 == nil; filter = $0 })) {
+            HStack(spacing: 12) {
+                HealthRing(repos: monitor.followedRepos, lineWidth: 6).frame(width: 52, height: 52)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("\(monitor.followedRepos.count) dépôts").font(.app(.headline))
+                    Text(attentionSummary(counts)).font(.app(.caption)).foregroundStyle(.secondary)
+                        .contentTransition(.numericText())
+                }
+            }
+            .padding(.vertical, 8)
+            .selectionDisabled()
             Label("Tous les dépôts", systemImage: "tray.2")
                 .badge(monitor.followedRepos.count)
                 .tag(RepoCategory?.none)
@@ -75,6 +87,8 @@ struct DashboardView: View {
         List(repos, selection: $selection) { repo in
             DashboardRow(repo: repo).contextMenu { RepoActions(repo: repo) }
         }
+        // Les dépôts qui changent d'état glissent à leur nouvelle place.
+        .animation(Motion.animation(Motion.spring), value: repos.map { "\($0.id)\(RepoCategory($0).rawValue)" })
         .overlay {
             if repos.isEmpty {
                 ContentUnavailableView(search.isEmpty ? "Aucun dépôt" : "Aucun résultat", systemImage: "checkmark.circle",
@@ -83,6 +97,11 @@ struct DashboardView: View {
         }
         .navigationTitle(showAll || filter == nil ? "Tous les dépôts" : filter!.title)
         .navigationSubtitle(monitor.lastCheck.map { "Vérifié \($0.formatted(.relative(presentation: .named)))" } ?? "")
+    }
+
+    private func attentionSummary(_ counts: [RepoCategory: Int]) -> String {
+        let attention = (counts[.toPull] ?? 0) + (counts[.error] ?? 0)
+        return attention == 0 ? "Tout est à jour" : attention == 1 ? "1 demande attention" : "\(attention) demandent attention"
     }
 
     @ViewBuilder
@@ -120,27 +139,28 @@ struct DashboardRow: View {
     var body: some View {
         let category = RepoCategory(repo)
         HStack(spacing: 10) {
-            Image(systemName: category.symbol(repo)).foregroundStyle(category.color).font(.title3).frame(width: 22)
+            Image(systemName: category.symbol(repo)).foregroundStyle(category.color).font(.app(.title3)).frame(width: 22)
+                .contentTransition(.symbolEffect(.replace))
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(repo.name).fontWeight(.medium).lineLimit(1)
                     if let status = repo.status { BranchLabel(status: status) }
                 }
                 if let error = repo.status?.error {
-                    Text(error).font(.caption).foregroundStyle(.red).lineLimit(2)
+                    Text(error).font(.app(.caption)).foregroundStyle(.red).lineLimit(2)
                 } else if let error = repo.pullError {
-                    Text(error).font(.caption).foregroundStyle(.orange).lineLimit(2)
+                    Text(error).font(.app(.caption)).foregroundStyle(.orange).lineLimit(2)
                 } else if let commit = repo.status?.incoming.first {
-                    Text("↓ \(commit.subject)").font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    Text("↓ \(commit.subject)").font(.app(.caption)).foregroundStyle(.secondary).lineLimit(1)
                 } else {
-                    Text(repo.displayPath).font(.caption).foregroundStyle(.tertiary).lineLimit(1)
+                    Text(repo.displayPath).font(.app(.caption)).foregroundStyle(.tertiary).lineLimit(1)
                 }
             }
             Spacer(minLength: 8)
             RepoCounters(repo: repo)
             RepoSyncButtons(repo: repo)
         }
-        .padding(.vertical, 3)
+        .padding(.vertical, Preferences.shared.density == .compact ? 0 : 3)
         .help(RepoSummary.tooltip(repo))
     }
 }
@@ -191,10 +211,10 @@ struct RepoDetail: View {
         Form {
             Section {
                 HStack(spacing: 12) {
-                    Image(systemName: category.symbol(repo)).font(.largeTitle).foregroundStyle(category.color)
+                    Image(systemName: category.symbol(repo)).font(.app(.largeTitle)).foregroundStyle(category.color)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(repo.name).font(.title2.weight(.semibold))
-                        Text((repo.url.path as NSString).abbreviatingWithTildeInPath).font(.callout).foregroundStyle(.secondary)
+                        Text(repo.name).font(.app(.title2, weight: .semibold))
+                        Text((repo.url.path as NSString).abbreviatingWithTildeInPath).font(.app(.callout)).foregroundStyle(.secondary)
                             .textSelection(.enabled)
                     }
                     Spacer()
@@ -247,7 +267,7 @@ struct RepoDetail: View {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(commit.subject).lineLimit(2)
                                 Text("\(commit.hash) · \(commit.author) · \(commit.date.formatted(.relative(presentation: .named)))")
-                                    .font(.caption).foregroundStyle(.secondary)
+                                    .font(.app(.caption)).foregroundStyle(.secondary)
                             }
                         }
                     }
@@ -276,7 +296,7 @@ struct SelectionSummary: View {
         let pushable = repos.filter { monitor.pushable.map(\.id).contains($0.id) }
         VStack(spacing: 14) {
             Image(systemName: "square.stack.3d.up").font(.system(size: 40)).foregroundStyle(.secondary)
-            Text("\(repos.count) dépôts sélectionnés").font(.title3.weight(.semibold))
+            Text("\(repos.count) dépôts sélectionnés").font(.app(.title3, weight: .semibold))
             HStack {
                 Button { Task { await monitor.pullAll(pullable) } } label: { Label("Pull (\(pullable.count))", systemImage: "arrow.down") }
                     .disabled(pullable.isEmpty)
@@ -285,7 +305,7 @@ struct SelectionSummary: View {
             }
             .controlSize(.large)
             Text("Pull en avance rapide pour les dépôts sans commit ni modification locale ; Push pour ceux en avance et à jour avec le serveur.")
-                .font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: 320)
+                .font(.app(.callout)).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: 320)
         }
         .padding()
     }

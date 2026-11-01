@@ -30,6 +30,8 @@ L'icône montre le nombre de pull à faire et de dépôts en erreur (désactivab
 - **Liste** : une pastille de couleur par dépôt et un résumé par état ; les dépôts à jour sont repliés.
 - **Par action** : sections Erreurs, Pull à faire, Push à faire, Modifications locales, Pull du jour, À jour (repliée).
 
+L'en-tête affiche un anneau de santé (part des dépôts à jour, à tirer, à pousser, modifiés, en erreur) et, pendant une vérification, une barre d'avancement. Les compteurs défilent, les dépôts glissent d'une section à l'autre, une ligne s'allume en vert après un pull et en orange quand des commits arrivent, et l'icône de la barre des menus rebondit. Ces animations se coupent dans *Apparence* ou avec « Réduire les animations » de macOS.
+
 Clic sur une ligne : ouvre le dossier dans le Finder. Clic droit : Pull, Push, commits à récupérer, ouvrir dans VS Code, Zed, GitHub Desktop, Claude Code, le Finder, le Terminal ou sur GitHub/GitLab, copier le chemin, ne plus suivre.
 
 ## Fenêtre
@@ -44,6 +46,7 @@ Bouton fenêtre de l'en-tête du menu (ou *Réglages…*), deux onglets :
 - **Dépôts** : tableau filtrable avec, pour chaque dépôt, les bascules *Suivre* et *Auto-pull* ; menu *Sélection* pour changer plusieurs dépôts à la fois.
 - **Dossiers** : dossiers explorés et profondeur de recherche.
 - **À cloner** : dépôts de vos comptes absents de ce Mac, avec *Cloner* (dans le dossier choisi) et *Ignorer*. GitHub via GitHub CLI (`gh auth login`) ; GitLab via un jeton personnel (portée `read_api`) par serveur, saisi dans *Général* et gardé dans le trousseau. Archivés, partagés, forks et ignorés : menu *Afficher*.
+- **Apparence** : police du menu et du tableau de bord (SF Pro, SF Rounded, SF Mono, New York, OpenDyslexic pour les lecteurs dyslexiques, ou toute police installée), taille de 11 à 17 pt, densité (confortable ou compacte), animations ; aperçu en direct.
 - **Général** : intervalle de vérification, présentation du menu, badge, notifications (pull à faire ; auto-pull effectué ou échoué), comptes distants, ouverture à l'ouverture de session, recherche de mises à jour.
 
 ## Releases et mise à jour
@@ -52,3 +55,7 @@ Le workflow `.github/workflows/release.yml` compile un binaire universel et prod
 
 - `Tools/bump-version.sh` : incrémente la version avant un commit.
 - `Tools/make-icon.sh` : régénère `Resources/AppIcon.icns`.
+
+## Crédits
+
+Police [OpenDyslexic](https://opendyslexic.org) d'Abbie Gonzalez, sous licence SIL Open Font License 1.1 (`Resources/Fonts/OFL.txt`).
