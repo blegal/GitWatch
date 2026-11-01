@@ -59,3 +59,7 @@ Le workflow `.github/workflows/release.yml` compile un binaire universel et prod
 ## Crédits
 
 Police [OpenDyslexic](https://opendyslexic.org) d'Abbie Gonzalez, sous licence SIL Open Font License 1.1 (`Resources/Fonts/OFL.txt`).
+
+## Développement
+
+GitWatch a été développé avec l'aide de [Claude Code](https://claude.com/claude-code), l'assistant de programmation d'Anthropic.
