@@ -24,13 +24,13 @@ enum RepoCategory: Int, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .error: "Erreurs"
-        case .toPull: "Pull à faire"
-        case .toPush: "Push à faire"
-        case .modified: "Modifications locales"
-        case .pulled: "Pull du jour"
-        case .upToDate: "À jour"
-        case .unknown: "En cours de vérification"
+        case .error: L("Erreurs")
+        case .toPull: L("Pull à faire")
+        case .toPush: L("Push à faire")
+        case .modified: L("Modifications locales")
+        case .pulled: L("Pull du jour")
+        case .upToDate: L("À jour")
+        case .unknown: L("En cours de vérification")
         }
     }
 
@@ -306,19 +306,19 @@ enum Notifier {
 
     static func behind(_ repos: [(String, Int)]) {
         if repos.count == 1, let (name, count) = repos.first {
-            post("\(name) : pull à faire", count == 1 ? "1 nouveau commit." : "\(count) nouveaux commits.")
+            post(L("\(name) : pull à faire"), count == 1 ? L("1 nouveau commit.") : L("\(count) nouveaux commits."))
         } else {
-            post("\(repos.count) dépôts : pull à faire", repos.map(\.0).joined(separator: ", "))
+            post(L("\(repos.count) dépôts : pull à faire"), repos.map(\.0).joined(separator: ", "))
         }
     }
 
     static func autoPulled(_ repos: [(String, Int)], failures: [String]) {
         if !repos.isEmpty {
             let detail = repos.map { "\($0.0) (\($0.1))" }.joined(separator: ", ")
-            post(repos.count == 1 ? "Pull automatique : \(repos[0].0)" : "Pull automatique de \(repos.count) dépôts", detail)
+            post(repos.count == 1 ? L("Pull automatique : \(repos[0].0)") : L("Pull automatique de \(repos.count) dépôts"), detail)
         }
         if !failures.isEmpty {
-            post("Échec du pull automatique", failures.joined(separator: ", "))
+            post(L("Échec du pull automatique"), failures.joined(separator: ", "))
         }
     }
 

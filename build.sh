@@ -31,6 +31,8 @@ cp Resources/Info.plist "$APP/Contents/"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/"
 # Polices embarquées (OpenDyslexic), enregistrées par ATSApplicationFontsPath.
 cp -R Resources/Fonts "$APP/Contents/Resources/"
+# Traductions de l'interface (en.lproj généré par Tools/l10n.py build ; fr.lproj : le français est la langue du code).
+cp -R Resources/*.lproj "$APP/Contents/Resources/"
 PLIST="$APP/Contents/Info.plist"
 [[ -n "${VERSION:-}" ]] && /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$PLIST"
 [[ -n "${BUILD_NUMBER:-}" ]] && /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$PLIST"

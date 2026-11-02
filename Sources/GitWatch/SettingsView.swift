@@ -8,11 +8,11 @@ struct SettingsView: View {
         var id: String { rawValue }
         var title: String {
             switch self {
-            case .repos: "Dépôts"
-            case .folders: "Dossiers"
-            case .remote: "À cloner"
-            case .appearance: "Apparence"
-            case .general: "Général"
+            case .repos: L("Dépôts")
+            case .folders: L("Dossiers")
+            case .remote: L("À cloner")
+            case .appearance: L("Apparence")
+            case .general: L("Général")
             }
         }
         var symbol: String {
@@ -63,7 +63,7 @@ struct ReposPane: View {
 
     var body: some View {
         Table(repos, selection: $selection) {
-            TableColumn("Dépôt") { repo in
+            TableColumn(L("Dépôt")) { repo in
                 VStack(alignment: .leading, spacing: 1) {
                     Text(repo.name).fontWeight(.medium)
                     Text(location(repo)).font(.caption).foregroundStyle(.secondary).lineLimit(1)
@@ -72,26 +72,26 @@ struct ReposPane: View {
                 .contextMenu { RepoActions(repo: repo) }
             }
             .width(min: 200, ideal: 300)
-            TableColumn("État") { repo in StateLabel(repo: repo, followed: preferences.settings(for: repo.id).followed) }
+            TableColumn(L("État")) { repo in StateLabel(repo: repo, followed: preferences.settings(for: repo.id).followed) }
                 .width(min: 110, ideal: 140)
-            TableColumn("Suivre") { repo in
-                Toggle("Suivre", isOn: binding(repo.id, \.followed)).labelsHidden().toggleStyle(.switch).controlSize(.mini)
+            TableColumn(L("Suivre")) { repo in
+                Toggle(L("Suivre"), isOn: binding(repo.id, \.followed)).labelsHidden().toggleStyle(.switch).controlSize(.mini)
             }
             .width(56)
             TableColumn("Auto-pull") { repo in
-                Toggle("Tirer automatiquement", isOn: binding(repo.id, \.autoPull))
+                Toggle(L("Tirer automatiquement"), isOn: binding(repo.id, \.autoPull))
                     .labelsHidden().toggleStyle(.switch).controlSize(.mini)
                     .disabled(!preferences.settings(for: repo.id).followed)
             }
             .width(64)
         }
-        .searchable(text: $filter, placement: .toolbar, prompt: "Filtrer")
+        .searchable(text: $filter, placement: .toolbar, prompt: L("Filtrer"))
         .safeAreaInset(edge: .bottom) {
             HStack {
-                Text("L’auto-pull se fait en avance rapide, seulement sans commit ni modification locale.")
+                Text(L("L’auto-pull se fait en avance rapide, seulement sans commit ni modification locale."))
                     .font(.caption).foregroundStyle(.secondary)
                 Spacer()
-                Text(monitor.repos.count == 1 ? "1 dépôt" : "\(monitor.repos.count) dépôts").font(.caption).foregroundStyle(.secondary)
+                Text(monitor.repos.count == 1 ? L("1 dépôt") : L("\(monitor.repos.count) dépôts")).font(.caption).foregroundStyle(.secondary)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
@@ -100,20 +100,20 @@ struct ReposPane: View {
         .toolbar {
             ToolbarItemGroup {
                 Menu {
-                    Button("Suivre la sélection") { setSelected(\.followed, true) }
-                    Button("Ne plus suivre la sélection") { setSelected(\.followed, false) }
+                    Button(L("Suivre la sélection")) { setSelected(\.followed, true) }
+                    Button(L("Ne plus suivre la sélection")) { setSelected(\.followed, false) }
                     Divider()
-                    Button("Activer l’auto-pull") { setSelected(\.autoPull, true) }
-                    Button("Désactiver l’auto-pull") { setSelected(\.autoPull, false) }
-                } label: { Label("Sélection", systemImage: "checklist") }
+                    Button(L("Activer l’auto-pull")) { setSelected(\.autoPull, true) }
+                    Button(L("Désactiver l’auto-pull")) { setSelected(\.autoPull, false) }
+                } label: { Label(L("Sélection"), systemImage: "checklist") }
                 .disabled(selection.isEmpty)
                 Button {
                     Task { await monitor.refresh(fetch: true) }
-                } label: { Label("Vérifier", systemImage: "arrow.clockwise") }
+                } label: { Label(L("Vérifier"), systemImage: "arrow.clockwise") }
                 .disabled(monitor.isChecking)
             }
         }
-        .navigationTitle("Dépôts")
+        .navigationTitle(L("Dépôts"))
     }
 
     private func location(_ repo: Repo) -> String {
@@ -151,17 +151,17 @@ struct StateLabel: View {
     }
 
     private func describe() -> (String, Color) {
-        guard followed else { return ("Non suivi", .secondary) }
+        guard followed else { return (L("Non suivi"), .secondary) }
         guard let status = repo.status else { return ("—", .secondary) }
         switch RepoCategory(repo) {
-        case .error: return ("Erreur", .red)
-        case .toPull: return (status.ahead > 0 ? "↓\(status.behind) ↑\(status.ahead) divergé" : "↓\(status.behind) pull", .orange)
+        case .error: return (L("Erreur"), .red)
+        case .toPull: return (status.ahead > 0 ? L("↓\(status.behind) ↑\(status.ahead) divergé") : "↓\(status.behind) pull", .orange)
         case .toPush: return ("↑\(status.ahead) push", .blue)
         case .modified:
             if !status.isClean { return ("+\(status.added) −\(status.removed)", .indigo) }
-            return (status.stashes > 0 ? "Stash en attente" : "Branche non poussée", .indigo)
-        case .pulled: return ("Pull aujourd’hui", .green)
-        case .upToDate: return (status.upstream == nil ? "Sans amont" : "À jour", status.upstream == nil ? .secondary : .green)
+            return (status.stashes > 0 ? L("Stash en attente") : L("Branche non poussée"), .indigo)
+        case .pulled: return (L("Pull aujourd’hui"), .green)
+        case .upToDate: return (status.upstream == nil ? L("Sans amont") : L("À jour"), status.upstream == nil ? .secondary : .green)
         case .unknown: return ("—", .secondary)
         }
     }
@@ -179,7 +179,7 @@ struct FoldersPane: View {
         Form {
             Section {
                 if preferences.roots.isEmpty {
-                    Text("Aucun dossier. Ajoutez les dossiers qui contiennent vos dépôts.").foregroundStyle(.secondary)
+                    Text(L("Aucun dossier. Ajoutez les dossiers qui contiennent vos dépôts.")).foregroundStyle(.secondary)
                 }
                 ForEach($preferences.roots) { $root in
                     HStack(spacing: 10) {
@@ -189,35 +189,35 @@ struct FoldersPane: View {
                             Text(count(root)).font(.caption).foregroundStyle(.secondary)
                         }
                         Spacer()
-                        Text("Profondeur \(root.depth)").monospacedDigit().foregroundStyle(.secondary)
-                        Stepper("Profondeur", value: $root.depth, in: 0...6)
+                        Text(L("Profondeur \(root.depth)")).monospacedDigit().foregroundStyle(.secondary)
+                        Stepper(L("Profondeur"), value: $root.depth, in: 0...6)
                             .labelsHidden()
                             .onChange(of: root.depth) { Task { await monitor.refresh(fetch: false) } }
                         Button { remove(root) } label: { Image(systemName: "minus.circle") }
                             .buttonStyle(.borderless)
-                            .help("Retirer ce dossier")
+                            .help(L("Retirer ce dossier"))
                     }
                     .padding(.vertical, 2)
                 }
             } header: {
-                Text("Dossiers explorés")
+                Text(L("Dossiers explorés"))
             } footer: {
                 HStack {
-                    Text("La profondeur indique sur combien de niveaux chercher des dépôts sous chaque dossier.")
+                    Text(L("La profondeur indique sur combien de niveaux chercher des dépôts sous chaque dossier."))
                         .font(.caption).foregroundStyle(.secondary)
                     Spacer()
-                    Button("Ajouter un dossier…", action: add)
+                    Button(L("Ajouter un dossier…"), action: add)
                 }
             }
         }
         .formStyle(.grouped)
-        .navigationTitle("Dossiers")
+        .navigationTitle(L("Dossiers"))
     }
 
     private func count(_ root: SearchRoot) -> String {
         let prefix = root.path.hasSuffix("/") ? root.path : root.path + "/"
         let n = monitor.repos.filter { $0.id == root.path || $0.id.hasPrefix(prefix) }.count
-        return n == 1 ? "1 dépôt" : "\(n) dépôts"
+        return n == 1 ? L("1 dépôt") : L("\(n) dépôts")
     }
 
     private func add() {
@@ -225,8 +225,8 @@ struct FoldersPane: View {
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = true
-        panel.prompt = "Ajouter"
-        panel.message = "Choisissez les dossiers qui contiennent vos dépôts Git."
+        panel.prompt = L("Ajouter")
+        panel.message = L("Choisissez les dossiers qui contiennent vos dépôts Git.")
         guard panel.runModal() == .OK else { return }
         for url in panel.urls where !preferences.roots.contains(where: { $0.path == url.path }) {
             preferences.roots.append(SearchRoot(path: url.path, depth: 2))
@@ -246,46 +246,64 @@ struct GeneralPane: View {
     @Environment(Monitor.self) private var monitor
     @Environment(Preferences.self) private var preferences
     @State private var launchAtLogin = Preferences.shared.launchAtLogin
+    @State private var language = AppLanguage.chosen
+    @State private var askRelaunch = false
 
     var body: some View {
         @Bindable var preferences = preferences
         Form {
-            Section("Vérification") {
-                Picker("Vérifier toutes les", selection: $preferences.interval) {
+            Section {
+                Picker(L("Langue"), selection: $language) {
+                    ForEach(AppLanguage.allCases) { Text($0.title).tag($0) }
+                }
+                .onChange(of: language) { _, value in
+                    guard value != AppLanguage.chosen else { return }
+                    AppLanguage.chosen = value
+                    askRelaunch = true
+                }
+            }
+            Section(L("Vérification")) {
+                Picker(L("Vérifier toutes les"), selection: $preferences.interval) {
                     ForEach(Preferences.intervals, id: \.self) { minutes in
-                        Text(minutes < 60 ? "\(minutes) minutes" : minutes == 60 ? "heure" : "\(minutes / 60) heures").tag(minutes)
+                        Text(minutes < 60 ? L("\(minutes) minutes") : minutes == 60 ? L("heure") : L("\(minutes / 60) heures")).tag(minutes)
                     }
                 }
                 .onChange(of: preferences.interval) { monitor.schedule() }
             }
-            Section("Menu") {
-                Picker("Présentation", selection: $preferences.layout) {
+            Section(L("Menu")) {
+                Picker(L("Présentation"), selection: $preferences.layout) {
                     ForEach(MenuLayout.allCases) { Text($0.title).tag($0) }
                 }
                 .pickerStyle(.segmented)
-                Toggle("Afficher le nombre de pull à faire dans la barre des menus", isOn: $preferences.showBadge)
+                Toggle(L("Afficher le nombre de pull à faire dans la barre des menus"), isOn: $preferences.showBadge)
             }
-            Section("Notifications") {
-                Toggle("Quand un pull est à faire (nouveaux commits sur le serveur)", isOn: $preferences.notifyBehind)
-                Toggle("Après un auto-pull", isOn: $preferences.notifyAutoPull)
+            Section(L("Notifications")) {
+                Toggle(L("Quand un pull est à faire (nouveaux commits sur le serveur)"), isOn: $preferences.notifyBehind)
+                Toggle(L("Après un auto-pull"), isOn: $preferences.notifyAutoPull)
             }
             .onChange(of: preferences.notifyBehind || preferences.notifyAutoPull) { _, on in
                 if on { Notifier.requestAuthorizationIfNeeded() }
             }
             AccountsSection()
             Section {
-                Toggle("Ouvrir GitWatch à l’ouverture de session", isOn: $launchAtLogin)
+                Toggle(L("Ouvrir GitWatch à l’ouverture de session"), isOn: $launchAtLogin)
                     .onChange(of: launchAtLogin) { _, value in
                         preferences.launchAtLogin = value
                         launchAtLogin = preferences.launchAtLogin
                     }
-                LabeledContent("Version \(Updater.shared.currentVersion.description)") {
-                    Button("Rechercher les mises à jour…") { Updater.shared.checkForUpdates(nil) }
+                LabeledContent(L("Version \(Updater.shared.currentVersion.description)")) {
+                    Button(L("Rechercher les mises à jour…")) { Updater.shared.checkForUpdates(nil) }
                 }
             }
         }
         .formStyle(.grouped)
-        .navigationTitle("Général")
+        .navigationTitle(L("Général"))
+        .alert(L("Relancer GitWatch maintenant ?"), isPresented: $askRelaunch) {
+            Button(L("Relancer")) { AppLanguage.relaunch() }
+            Button(L("Plus tard"), role: .cancel) {}
+        } message: {
+            Text(L("La nouvelle langue s’appliquera au redémarrage."))
+        }
     }
 }
 
@@ -297,14 +315,14 @@ struct AccountsSection: View {
 
     var body: some View {
         Section {
-            LabeledContent("GitHub", value: "via GitHub CLI (gh auth login)")
+            LabeledContent("GitHub", value: L("via GitHub CLI (gh auth login)"))
             ForEach(RemoteCatalog.gitlabHosts(in: monitor.repos), id: \.self) { host in
                 GitLabTokenRow(host: host)
             }
         } header: {
-            Text("Comptes distants")
+            Text(L("Comptes distants"))
         } footer: {
-            Text("Pour la liste des dépôts à cloner. Les serveurs GitLab sont ceux de vos dépôts ; chaque jeton (portée read_api) est gardé dans le trousseau.")
+            Text(L("Pour la liste des dépôts à cloner. Les serveurs GitLab sont ceux de vos dépôts ; chaque jeton (portée read_api) est gardé dans le trousseau."))
                 .font(.caption).foregroundStyle(.secondary)
         }
     }
@@ -318,17 +336,17 @@ struct GitLabTokenRow: View {
     var body: some View {
         LabeledContent(host) {
             HStack {
-                SecureField("Jeton", text: $token, prompt: Text(hasToken ? "Enregistré dans le trousseau" : "Jeton d’accès (glpat-…)"))
+                SecureField(L("Jeton"), text: $token, prompt: Text(hasToken ? L("Enregistré dans le trousseau") : L("Jeton d’accès (glpat-…)")))
                     .labelsHidden()
                     .frame(maxWidth: 260)
-                Button(hasToken && token.isEmpty ? "Supprimer" : "Enregistrer") {
+                Button(hasToken && token.isEmpty ? L("Supprimer") : L("Enregistrer")) {
                     Keychain.setToken(token.isEmpty ? nil : token.trimmed, for: host)
                     token = ""
                     hasToken = Keychain.token(for: host) != nil
                 }
                 .disabled(!hasToken && token.isEmpty)
                 if !hasToken, let url = URL(string: "https://\(host)/-/user_settings/personal_access_tokens?name=GitWatch&scopes=read_api") {
-                    Link("Créer…", destination: url)
+                    Link(L("Créer…"), destination: url)
                 }
             }
         }
@@ -363,29 +381,29 @@ struct RemotePane: View {
     var body: some View {
         @Bindable var preferences = preferences
         Table(repos) {
-            TableColumn("Dépôt") { repo in
+            TableColumn(L("Dépôt")) { repo in
                 VStack(alignment: .leading, spacing: 1) {
                     HStack(spacing: 5) {
                         Text(repo.name).fontWeight(.medium)
-                        if repo.archived { tag("archivé") }
+                        if repo.archived { tag(L("archivé")) }
                         if repo.fork { tag("fork") }
-                        if !repo.owned { tag("partagé") }
+                        if !repo.owned { tag(L("partagé")) }
                     }
                     if let error = catalog.cloneErrors[repo.id] {
                         Text(error).font(.caption).foregroundStyle(.red).lineLimit(2)
                     } else {
-                        Text("\(RepoSummary.hostName(repo.web)) · \(repo.fullName)").font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                        Text(verbatim: "\(RepoSummary.hostName(repo.web)) · \(repo.fullName)").font(.caption).foregroundStyle(.secondary).lineLimit(1)
                     }
                 }
                 .opacity(preferences.ignoredRemotes.contains(repo.id) ? 0.5 : 1)
                 .contextMenu {
-                    Button("Ouvrir sur \(RepoSummary.hostName(repo.web))") { NSWorkspace.shared.open(repo.web) }
-                    Button(preferences.ignoredRemotes.contains(repo.id) ? "Ne plus ignorer" : "Ignorer") { toggleIgnored(repo) }
+                    Button(L("Ouvrir sur \(RepoSummary.hostName(repo.web))")) { NSWorkspace.shared.open(repo.web) }
+                    Button(preferences.ignoredRemotes.contains(repo.id) ? L("Ne plus ignorer") : L("Ignorer")) { toggleIgnored(repo) }
                 }
             }
             .width(min: 220, ideal: 320)
-            TableColumn("Activité") { repo in
-                Text(repo.updated.map { $0.formatted(.relative(presentation: .named)) } ?? "—").foregroundStyle(.secondary)
+            TableColumn(L("Activité")) { repo in
+                Text(repo.updated.map(\.relativeText) ?? "—").foregroundStyle(.secondary)
             }
             .width(min: 90, ideal: 120)
             TableColumn("") { repo in
@@ -393,7 +411,7 @@ struct RemotePane: View {
                     if catalog.cloning.contains(repo.id) {
                         ProgressView().controlSize(.small)
                     } else {
-                        Button("Cloner") { if let destination { Task { await catalog.clone(repo, into: destination) } } }
+                        Button(L("Cloner")) { if let destination { Task { await catalog.clone(repo, into: destination) } } }
                             .controlSize(.small)
                             .disabled(destination == nil)
                     }
@@ -401,34 +419,34 @@ struct RemotePane: View {
                         Image(systemName: preferences.ignoredRemotes.contains(repo.id) ? "eye" : "eye.slash")
                     }
                     .buttonStyle(.borderless)
-                    .help(preferences.ignoredRemotes.contains(repo.id) ? "Ne plus ignorer" : "Ignorer ce dépôt")
+                    .help(preferences.ignoredRemotes.contains(repo.id) ? L("Ne plus ignorer") : L("Ignorer ce dépôt"))
                 }
             }
             .width(110)
         }
         .overlay {
             if catalog.isLoading && catalog.remote.isEmpty {
-                ProgressView("Interrogation des serveurs…")
+                ProgressView(L("Interrogation des serveurs…"))
             } else if repos.isEmpty, catalog.lastLoad != nil {
-                ContentUnavailableView("Rien à cloner", systemImage: "checkmark.icloud",
-                                       description: Text("Tous les dépôts de vos comptes sont présents sur ce Mac."))
+                ContentUnavailableView(L("Rien à cloner"), systemImage: "checkmark.icloud",
+                                       description: Text(L("Tous les dépôts de vos comptes sont présents sur ce Mac.")))
             }
         }
-        .searchable(text: $filter, placement: .toolbar, prompt: "Filtrer")
+        .searchable(text: $filter, placement: .toolbar, prompt: L("Filtrer"))
         .safeAreaInset(edge: .bottom) {
             VStack(alignment: .leading, spacing: 6) {
                 ForEach(catalog.errors.sorted(by: { $0.key < $1.key }), id: \.key) { source, message in
-                    Label("\(source) : \(message)", systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(.red)
+                    Label(L("\(source) : \(message)"), systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(.red)
                 }
                 HStack {
-                    Picker("Cloner dans", selection: Binding(get: { destination?.path ?? "" }, set: { preferences.cloneFolder = $0 })) {
+                    Picker(L("Cloner dans"), selection: Binding(get: { destination?.path ?? "" }, set: { preferences.cloneFolder = $0 })) {
                         ForEach(preferences.roots) { root in
                             Text((root.path as NSString).abbreviatingWithTildeInPath).tag(root.path)
                         }
                     }
                     .fixedSize()
                     Spacer()
-                    Text(repos.count == 1 ? "1 dépôt" : "\(repos.count) dépôts").font(.caption).foregroundStyle(.secondary)
+                    Text(repos.count == 1 ? L("1 dépôt") : L("\(repos.count) dépôts")).font(.caption).foregroundStyle(.secondary)
                 }
             }
             .padding(.horizontal, 14)
@@ -438,16 +456,16 @@ struct RemotePane: View {
         .toolbar {
             ToolbarItemGroup {
                 Menu {
-                    Toggle("Dépôts archivés", isOn: $showArchived)
-                    Toggle("Dépôts partagés avec moi", isOn: $showShared)
+                    Toggle(L("Dépôts archivés"), isOn: $showArchived)
+                    Toggle(L("Dépôts partagés avec moi"), isOn: $showShared)
                     Toggle("Forks", isOn: $showForks)
-                    Toggle("Dépôts ignorés", isOn: $showIgnored)
-                } label: { Label("Afficher", systemImage: "line.3.horizontal.decrease.circle") }
-                Button { Task { await catalog.load() } } label: { Label("Actualiser", systemImage: "arrow.clockwise") }
+                    Toggle(L("Dépôts ignorés"), isOn: $showIgnored)
+                } label: { Label(L("Afficher"), systemImage: "line.3.horizontal.decrease.circle") }
+                Button { Task { await catalog.load() } } label: { Label(L("Actualiser"), systemImage: "arrow.clockwise") }
                     .disabled(catalog.isLoading)
             }
         }
-        .navigationTitle("À cloner")
+        .navigationTitle(L("À cloner"))
         .task { if catalog.lastLoad == nil { await catalog.load() } }
     }
 

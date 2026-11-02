@@ -13,7 +13,7 @@ GitWatch watches every repository on your Mac and tells you what needs your atte
   </picture>
 </p>
 
-> The interface is currently in French. The screenshots show fictional repositories.
+> The screenshots show fictional repositories.
 
 ## Why GitWatch?
 
@@ -37,6 +37,7 @@ GitWatch checks all your repositories in the background (`git fetch`) and tells 
 - **Open in your tools**: VS Code, Zed, GitHub Desktop, Claude Code, Finder, Terminal, or the repository web page (GitHub, GitLab). Only installed tools are shown.
 - **Repositories to clone**: lists the repositories of your GitHub and GitLab accounts that are not on this Mac yet.
 - **Accessible appearance**: font (including OpenDyslexic), size, density, light and dark mode, animations that respect *Reduce motion*.
+- **English and French**: GitWatch follows the system language (French if macOS is in French, English otherwise); you can also choose it in Settings › General.
 - **Light**: native Swift app, no Dock icon, 0% CPU between checks, about 25 MB of memory.
 
 ## Screenshots
@@ -79,7 +80,7 @@ Font, size and density, with a live preview. OpenDyslexic is included for dyslex
 
 ### General settings
 
-Check interval, menu layout, notifications, GitHub and GitLab accounts, launch at login, updates.
+Language, check interval, menu layout, notifications, GitHub and GitLab accounts, launch at login, updates.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/settings-general-dark.png">
@@ -121,6 +122,7 @@ The `.github/workflows/release.yml` workflow builds a universal binary and a sig
 
 - `Tools/bump-version.sh`: bumps the version before a commit.
 - `Tools/make-icon.sh`: regenerates `Resources/AppIcon.icns`.
+- `Tools/l10n.py build`: regenerates `Resources/en.lproj/Localizable.strings` from `Tools/l10n/en.json` (the code is written in French; `Tools/l10n.py missing en` lists untranslated texts).
 
 ## Credits
 

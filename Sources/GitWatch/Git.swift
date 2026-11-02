@@ -116,10 +116,10 @@ enum Git {
         killer.cancel()
 
         guard process.terminationStatus == 0 else {
-            if process.terminationReason == .uncaughtSignal { throw Failure(message: "Délai dépassé (\(Int(timeout)) s).") }
+            if process.terminationReason == .uncaughtSignal { throw Failure(message: L("Délai dépassé (\(Int(timeout)) s).")) }
             let message = String(decoding: errorData, as: UTF8.self)
                 .split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }
-                .first { !$0.isEmpty && !$0.hasPrefix("hint:") } ?? "git \(arguments.first ?? "") a échoué."
+                .first { !$0.isEmpty && !$0.hasPrefix("hint:") } ?? L("git \(arguments.first ?? "") a échoué.")
             throw Failure(message: explain(String(decoding: errorData, as: UTF8.self), fallback: message))
         }
         return String(decoding: data, as: UTF8.self)
@@ -129,32 +129,32 @@ enum Git {
     static func explain(_ output: String, fallback: String) -> String {
         let text = output.lowercased()
         if let range = output.range(of: #"could not read (Username|Password) for '([^']+)'"#, options: .regularExpression) {
-            let host = URL(string: output[range].components(separatedBy: "'")[1])?.host ?? "le serveur"
-            return "Identifiants HTTPS manquants pour \(host) : enregistrez-les dans le trousseau (un git pull dans le Terminal suffit)."
+            let host = URL(string: output[range].components(separatedBy: "'")[1])?.host ?? L("le serveur")
+            return L("Identifiants HTTPS manquants pour \(host) : enregistrez-les dans le trousseau (un git pull dans le Terminal suffit).")
         }
         if text.contains("repository not found") || text.contains("does not appear to be a git repository") {
-            return "Dépôt introuvable sur le serveur : supprimé, renommé ou accès refusé."
+            return L("Dépôt introuvable sur le serveur : supprimé, renommé ou accès refusé.")
         }
         if text.contains("access to repository not granted") || text.contains("403") {
-            return "Accès refusé par le serveur."
+            return L("Accès refusé par le serveur.")
         }
         if text.contains("permission denied (publickey") || text.contains("host key verification failed") {
-            return "Accès SSH refusé : clé absente de l’agent ou hôte inconnu."
+            return L("Accès SSH refusé : clé absente de l’agent ou hôte inconnu.")
         }
         if text.contains("could not resolve host") || text.contains("unable to access") && text.contains("resolve") {
-            return "Serveur injoignable (réseau ou nom d’hôte)."
+            return L("Serveur injoignable (réseau ou nom d’hôte).")
         }
         if text.contains("would be overwritten") {
-            return "Pull refusé : modifications locales en conflit."
+            return L("Pull refusé : modifications locales en conflit.")
         }
         if text.contains("unmerged files") || text.contains("merging is not possible") || text.contains("you have not concluded your merge") {
-            return "Fusion en cours : terminez-la ou annulez-la."
+            return L("Fusion en cours : terminez-la ou annulez-la.")
         }
         if text.contains("[rejected]") || text.contains("non-fast-forward") || text.contains("fetch first") {
-            return "Push refusé : le serveur a des commits plus récents, faites d’abord un pull."
+            return L("Push refusé : le serveur a des commits plus récents, faites d’abord un pull.")
         }
         if text.contains("not possible to fast-forward") || text.contains("diverging branches") {
-            return "Branches divergentes : avance rapide impossible."
+            return L("Branches divergentes : avance rapide impossible.")
         }
         return fallback.replacingOccurrences(of: "fatal: ", with: "").replacingOccurrences(of: "error: ", with: "")
     }

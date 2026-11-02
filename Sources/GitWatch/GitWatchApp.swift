@@ -8,6 +8,7 @@ struct GitWatchApp: App {
     @State private var router = WindowRouter.shared
 
     init() {
+        AppLanguage.applyAtLaunch()
         Task { @MainActor in
             Monitor.shared.start()
             Updater.shared.checkAtLaunch()
@@ -49,6 +50,6 @@ struct MenuBarLabel: View {
                 .symbolEffect(.bounce, value: count)
             if count > 0 { Text("\(count)").monospacedDigit() }
         }
-        .accessibilityLabel(count > 0 ? "GitWatch : \(count) dépôts demandent votre attention" : "GitWatch : tout est à jour")
+        .accessibilityLabel(count > 0 ? L("GitWatch : \(count) dépôts demandent votre attention") : L("GitWatch : tout est à jour"))
     }
 }

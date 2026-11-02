@@ -42,21 +42,21 @@ struct MenuView: View {
             HealthRing(repos: repos)
                 .frame(width: 30, height: 30)
             VStack(alignment: .leading, spacing: 1) {
-                Text("Dépôts Git").font(.app(.headline))
+                Text(L("Dépôts Git")).font(.app(.headline))
                 Text(subtitle).font(.app(.caption)).foregroundStyle(.secondary)
                     .contentTransition(.numericText())
             }
             Spacer()
             Button { show(.dashboard) } label: { Image(systemName: "macwindow") }
                 .buttonStyle(.borderless)
-                .help("Ouvrir le tableau de bord")
+                .help(L("Ouvrir le tableau de bord"))
             Button { Task { await monitor.refresh(fetch: true) } } label: {
                 Image(systemName: "arrow.clockwise")
                     .symbolEffect(.rotate, options: .repeat(.continuous), isActive: monitor.isChecking && Motion.enabled)
             }
             .buttonStyle(.borderless)
             .disabled(monitor.isChecking)
-            .help(monitor.isChecking ? "Vérification en cours…" : "Vérifier maintenant")
+            .help(monitor.isChecking ? L("Vérification en cours…") : L("Vérifier maintenant"))
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
@@ -79,10 +79,10 @@ struct MenuView: View {
     }
 
     private var subtitle: String {
-        let count = repos.count == 1 ? "1 dépôt" : "\(repos.count) dépôts"
-        if let progress = monitor.progress { return "Vérification… \(progress.done)/\(progress.total)" }
-        guard let last = monitor.lastCheck else { return monitor.isChecking ? "Vérification…" : count }
-        return "Vérifié \(last.formatted(.relative(presentation: .named))) · \(count)"
+        let count = repos.count == 1 ? L("1 dépôt") : L("\(repos.count) dépôts")
+        if let progress = monitor.progress { return L("Vérification… \(progress.done)/\(progress.total)") }
+        guard let last = monitor.lastCheck else { return monitor.isChecking ? L("Vérification…") : count }
+        return L("Vérifié \(last.relativeText) · \(count)")
     }
 
     private var footer: some View {
@@ -93,19 +93,19 @@ struct MenuView: View {
                 Label(pullable > 0 ? "Pull all (\(pullable))" : "Pull all", systemImage: "arrow.down")
             }
             .disabled(pullable == 0)
-            .help("Pull des dépôts en retard qui n’ont ni commit ni modification locale.")
+            .help(L("Pull des dépôts en retard qui n’ont ni commit ni modification locale."))
             Button { Task { await monitor.pushAll() } } label: {
                 Label(pushable > 0 ? "Push all (\(pushable))" : "Push all", systemImage: "arrow.up")
             }
             .disabled(pushable == 0)
-            .help("Push des dépôts en avance et à jour avec le serveur.")
+            .help(L("Push des dépôts en avance et à jour avec le serveur."))
             Spacer()
             HStack(spacing: 12) {
                 UpdateIndicator()
                 Button { show(.settings) } label: { Image(systemName: "gearshape") }
-                    .help("Réglages…")
+                    .help(L("Réglages…"))
                 Button { NSApp.terminate(nil) } label: { Image(systemName: "power") }
-                    .help("Quitter GitWatch")
+                    .help(L("Quitter GitWatch"))
             }
             .imageScale(.large)
         }
@@ -124,8 +124,8 @@ struct MenuView: View {
     private var empty: some View {
         VStack(spacing: 8) {
             Image(systemName: "folder.badge.questionmark").font(.app(.largeTitle)).foregroundStyle(.tertiary)
-            Text(preferences.roots.isEmpty ? "Aucun dossier à explorer" : "Aucun dépôt suivi").font(.app(.headline))
-            Text("Choisissez les dossiers où chercher vos dépôts dans les réglages.")
+            Text(preferences.roots.isEmpty ? L("Aucun dossier à explorer") : L("Aucun dépôt suivi")).font(.app(.headline))
+            Text(L("Choisissez les dossiers où chercher vos dépôts dans les réglages."))
                 .font(.app(.callout)).foregroundStyle(.secondary).multilineTextAlignment(.center)
         }
         .padding(24)
@@ -140,11 +140,11 @@ struct MenuView: View {
         let hidden = sorted.count - visible.count
         return Group {
             HStack(spacing: 6) {
-                summaryPill(counts[.upToDate, default: 0] + counts[.pulled, default: 0], "à jour", .green)
-                summaryPill(counts[.toPull, default: 0], "pull", .orange)
-                summaryPill(counts[.toPush, default: 0], "push", .blue)
-                summaryPill(counts[.modified, default: 0], "modifié", .indigo)
-                summaryPill(counts[.error, default: 0], "erreur", .red)
+                summaryPill(counts[.upToDate, default: 0] + counts[.pulled, default: 0], L("à jour"), .green)
+                summaryPill(counts[.toPull, default: 0], L("pull"), .orange)
+                summaryPill(counts[.toPush, default: 0], L("push"), .blue)
+                summaryPill(counts[.modified, default: 0], L("modifié"), .indigo)
+                summaryPill(counts[.error, default: 0], L("erreur"), .red)
             }
             .padding(.horizontal, 14)
             .padding(.bottom, 6)
@@ -156,7 +156,7 @@ struct MenuView: View {
     @ViewBuilder
     private func summaryPill(_ count: Int, _ label: String, _ color: Color) -> some View {
         if count > 0 {
-            Text("\(count) \(label)")
+            Text(verbatim: "\(count) \(label)")
                 .font(.app(.caption))
                 .contentTransition(.numericText(value: Double(count)))
                 .padding(.horizontal, 7)
@@ -174,7 +174,7 @@ struct MenuView: View {
             if let members = groups[category], !members.isEmpty {
                 HStack(spacing: 6) {
                     PulsingDot(color: category.color, pulsing: category.needsAttention)
-                    Text("\(category.title) · \(members.count)")
+                    Text(verbatim: "\(category.title) · \(members.count)")
                         .contentTransition(.numericText(value: Double(members.count)))
                 }
                     .font(.app(.caption, weight: .medium))
@@ -198,7 +198,7 @@ struct MenuView: View {
             HStack(spacing: 6) {
                 Image(systemName: "chevron.right").font(.app(.caption2, weight: .semibold))
                     .rotationEffect(.degrees(showUpToDate ? 90 : 0))
-                Text(preferences.layout == .list ? "\(count) autres à jour" : "Afficher")
+                Text(preferences.layout == .list ? L("\(count) autres à jour") : L("Afficher"))
             }
             .font(.app(.callout))
             .foregroundStyle(.secondary)
@@ -293,7 +293,7 @@ struct RepoRow: View {
                 // Pull reste possible : git refuse seulement si des fichiers modifiés sont touchés.
                 if status.behind > 0, status.ahead == 0 {
                     Button { Task { await monitor.pull(repo) } } label: { Image(systemName: "arrow.down") }
-                        .buttonStyle(.borderless).help("Pull (avance rapide)")
+                        .buttonStyle(.borderless).help(L("Pull (avance rapide)"))
                 }
                 if canPush {
                     Button { Task { await monitor.push(repo) } } label: { Image(systemName: "arrow.up") }
@@ -310,7 +310,7 @@ struct RepoRow: View {
         }
         if status.behind > 0, status.ahead > 0 || repo.pullError != nil, ExternalTool.githubDesktop.isAvailable {
             return AnyView(Button { ExternalTool.githubDesktop.open(repo.url) } label: { Label("Desktop", systemImage: "arrow.triangle.merge") }
-                .controlSize(.small).help("Fusion manuelle dans GitHub Desktop"))
+                .controlSize(.small).help(L("Fusion manuelle dans GitHub Desktop")))
         }
         if status.behind > 0, status.ahead == 0 {
             return AnyView(Button { Task { await monitor.pull(repo) } } label: { Label("Pull", systemImage: "arrow.down") }
@@ -344,34 +344,34 @@ struct RepoActions: View {
     @Environment(Monitor.self) private var monitor
 
     var body: some View {
-        Button { Task { await monitor.pull(repo) } } label: { Label("Pull (avance rapide)", systemImage: "arrow.down") }
+        Button { Task { await monitor.pull(repo) } } label: { Label(L("Pull (avance rapide)"), systemImage: "arrow.down") }
             .disabled((repo.status?.behind ?? 0) == 0)
         Button { Task { await monitor.push(repo) } } label: { Label("Push", systemImage: "arrow.up") }
             .disabled((repo.status?.ahead ?? 0) == 0 || repo.status?.upstream == nil)
         if let incoming = repo.status?.incoming, !incoming.isEmpty {
-            Menu("Commits à récupérer (\(repo.status?.behind ?? incoming.count))") {
-                ForEach(incoming) { Text("\($0.subject) — \($0.author)") }
+            Menu(L("Commits à récupérer (\(repo.status?.behind ?? incoming.count))")) {
+                ForEach(incoming) { Text(verbatim: "\($0.subject) — \($0.author)") }
             }
         }
         Divider()
         ForEach(ExternalTool.allCases.filter(\.isAvailable)) { tool in
             Button(tool.help) { tool.open(repo.url) }
         }
-        Button("Ouvrir dans le Finder") { NSWorkspace.shared.open(repo.url) }
-        Button("Ouvrir dans le Terminal") {
+        Button(L("Ouvrir dans le Finder")) { NSWorkspace.shared.open(repo.url) }
+        Button(L("Ouvrir dans le Terminal")) {
             if let terminal = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Terminal") {
                 NSWorkspace.shared.open([repo.url], withApplicationAt: terminal, configuration: NSWorkspace.OpenConfiguration())
             }
         }
         if let web = repo.status?.webURL {
-            Button("Ouvrir sur \(RepoSummary.hostName(web))") { NSWorkspace.shared.open(web) }
+            Button(L("Ouvrir sur \(RepoSummary.hostName(web))")) { NSWorkspace.shared.open(web) }
         }
-        Button("Copier le chemin") {
+        Button(L("Copier le chemin")) {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(repo.url.path, forType: .string)
         }
         Divider()
-        Button("Ne plus suivre") {
+        Button(L("Ne plus suivre")) {
             Preferences.shared.update(repo.id) { $0.followed = false }
         }
     }
@@ -384,10 +384,10 @@ enum ExternalTool: String, CaseIterable, Identifiable {
 
     var help: String {
         switch self {
-        case .vscode: "Ouvrir dans VS Code"
-        case .zed: "Ouvrir dans Zed"
-        case .githubDesktop: "Ouvrir dans GitHub Desktop"
-        case .claude: "Ouvrir Claude Code dans le Terminal"
+        case .vscode: L("Ouvrir dans VS Code")
+        case .zed: L("Ouvrir dans Zed")
+        case .githubDesktop: L("Ouvrir dans GitHub Desktop")
+        case .claude: L("Ouvrir Claude Code dans le Terminal")
         }
     }
 
@@ -492,10 +492,10 @@ struct UpdateIndicator: View {
 
     private var help: String {
         switch state {
-        case .idle: "Rechercher les mises à jour (version \(Updater.shared.currentVersion))"
-        case .checking: "Recherche des mises à jour…"
-        case .available(let version): "Version \(version) disponible : cliquer pour l’installer"
-        case .installing: "Installation de la mise à jour, puis redémarrage…"
+        case .idle: L("Rechercher les mises à jour (version \(Updater.shared.currentVersion))")
+        case .checking: L("Recherche des mises à jour…")
+        case .available(let version): L("Version \(version) disponible : cliquer pour l’installer")
+        case .installing: L("Installation de la mise à jour, puis redémarrage…")
         }
     }
 }

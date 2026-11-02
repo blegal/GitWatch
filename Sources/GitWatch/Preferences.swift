@@ -20,7 +20,7 @@ struct RepoSettings: Codable, Equatable {
 enum MenuLayout: String, Codable, CaseIterable, Identifiable {
     case list, grouped
     var id: String { rawValue }
-    var title: String { self == .list ? "Liste" : "Par action" }
+    var title: String { self == .list ? L("Liste") : L("Par action") }
 }
 
 /// Police de l'interface (menu et tableau de bord).
@@ -29,12 +29,12 @@ enum FontChoice: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .system: "Système (SF Pro)"
-        case .rounded: "Arrondie (SF Rounded)"
-        case .monospaced: "Chasse fixe (SF Mono)"
-        case .serif: "Serif (New York)"
-        case .dyslexic: "Dyslexie (OpenDyslexic)"
-        case .custom: "Autre police…"
+        case .system: L("Système (SF Pro)")
+        case .rounded: L("Arrondie (SF Rounded)")
+        case .monospaced: L("Chasse fixe (SF Mono)")
+        case .serif: L("Serif (New York)")
+        case .dyslexic: L("Dyslexie (OpenDyslexic)")
+        case .custom: L("Autre police…")
         }
     }
 }
@@ -43,7 +43,7 @@ enum FontChoice: String, Codable, CaseIterable, Identifiable {
 enum Density: String, Codable, CaseIterable, Identifiable {
     case comfortable, compact
     var id: String { rawValue }
-    var title: String { self == .comfortable ? "Confortable" : "Compacte" }
+    var title: String { self == .comfortable ? L("Confortable") : L("Compacte") }
 }
 
 /// Réglages de l'application (UserDefaults).

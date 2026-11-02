@@ -101,7 +101,7 @@ struct HealthRing: View {
         }
         .animation(Motion.animation(.spring(response: 0.6, dampingFraction: 0.85)), value: repos.map { RepoCategory($0) })
         .accessibilityElement()
-        .accessibilityLabel("\(upToDateShare) % des dépôts à jour")
+        .accessibilityLabel(L("\(upToDateShare) % des dépôts à jour"))
     }
 }
 

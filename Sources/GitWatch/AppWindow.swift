@@ -24,9 +24,9 @@ struct AppWindow: View {
         .frame(minWidth: 820, minHeight: 460)
         .toolbar {
             ToolbarItem(placement: .principal) {
-                Picker("Affichage", selection: $router.tab) {
-                    Text("Tableau de bord").tag(WindowRouter.Tab.dashboard)
-                    Text("Réglages").tag(WindowRouter.Tab.settings)
+                Picker(L("Affichage"), selection: $router.tab) {
+                    Text(L("Tableau de bord")).tag(WindowRouter.Tab.dashboard)
+                    Text(L("Réglages")).tag(WindowRouter.Tab.settings)
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()

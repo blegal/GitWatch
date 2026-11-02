@@ -8,8 +8,8 @@ GitWatch surveille tous les dépôts de votre Mac et vous signale ce qui demande
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/images/menu-dark.png">
-    <img src="docs/images/menu.png" width="380" alt="Menu de GitWatch : dépôts classés par action (erreurs, pull à faire, push à faire, modifications locales, pull du jour)">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/fr/menu-dark.png">
+    <img src="docs/images/fr/menu.png" width="380" alt="Menu de GitWatch : dépôts classés par action (erreurs, pull à faire, push à faire, modifications locales, pull du jour)">
   </picture>
 </p>
 
@@ -37,6 +37,7 @@ GitWatch vérifie tous vos dépôts en arrière-plan (`git fetch`) et vous prév
 - **Ouverture dans vos outils** : VS Code, Zed, GitHub Desktop, Claude Code, Finder, Terminal, ou la page web du dépôt (GitHub, GitLab). Seuls les outils installés apparaissent.
 - **Dépôts à cloner** : la liste des dépôts de vos comptes GitHub et GitLab qui ne sont pas encore sur ce Mac.
 - **Apparence accessible** : police (dont OpenDyslexic), taille, densité, mode clair et sombre, animations qui respectent « Réduire les animations ».
+- **Français et anglais** : GitWatch suit la langue du système (français si macOS est en français, anglais sinon) ; vous pouvez aussi la choisir dans Réglages › Général.
 - **Léger** : application Swift native, sans icône dans le Dock, 0 % de CPU entre deux vérifications, environ 25 Mo de mémoire.
 
 ## Captures d'écran
@@ -46,8 +47,8 @@ GitWatch vérifie tous vos dépôts en arrière-plan (`git fetch`) et vous prév
 Tous les dépôts dans une fenêtre, filtrés par état, avec les commits à récupérer du dépôt sélectionné.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/dashboard-dark.png">
-  <img src="docs/images/dashboard.png" alt="Tableau de bord : catégories dans la barre latérale, dépôts avec boutons Pull et Push, détail du dépôt sélectionné">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/fr/dashboard-dark.png">
+  <img src="docs/images/fr/dashboard.png" alt="Tableau de bord : catégories dans la barre latérale, dépôts avec boutons Pull et Push, détail du dépôt sélectionné">
 </picture>
 
 ### Choisir ce qui est surveillé
@@ -55,8 +56,8 @@ Tous les dépôts dans une fenêtre, filtrés par état, avec les commits à ré
 Suivez ou ignorez chaque dépôt, et activez l'auto-pull là où il a du sens.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/settings-repos-dark.png">
-  <img src="docs/images/settings-repos.png" alt="Réglages des dépôts : état de chaque dépôt avec les bascules Suivre et Auto-pull">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/fr/settings-repos-dark.png">
+  <img src="docs/images/fr/settings-repos.png" alt="Réglages des dépôts : état de chaque dépôt avec les bascules Suivre et Auto-pull">
 </picture>
 
 ### Apparence
@@ -67,23 +68,23 @@ Police, taille et densité, avec un aperçu en direct. OpenDyslexic est fournie 
   <tr>
     <td width="62%">
       <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="docs/images/settings-appearance-dark.png">
-        <img src="docs/images/settings-appearance.png" alt="Réglages d'apparence : police, taille, densité, animations et aperçu">
+        <source media="(prefers-color-scheme: dark)" srcset="docs/images/fr/settings-appearance-dark.png">
+        <img src="docs/images/fr/settings-appearance.png" alt="Réglages d'apparence : police, taille, densité, animations et aperçu">
       </picture>
     </td>
     <td width="38%">
-      <img src="docs/images/menu-dyslexic.png" alt="Le menu avec la police OpenDyslexic">
+      <img src="docs/images/fr/menu-dyslexic.png" alt="Le menu avec la police OpenDyslexic">
     </td>
   </tr>
 </table>
 
 ### Réglages généraux
 
-Intervalle de vérification, présentation du menu, notifications, comptes GitHub et GitLab, ouverture à l'ouverture de session, mises à jour.
+Langue, intervalle de vérification, présentation du menu, notifications, comptes GitHub et GitLab, ouverture à l'ouverture de session, mises à jour.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/settings-general-dark.png">
-  <img src="docs/images/settings-general.png" alt="Réglages généraux">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/fr/settings-general-dark.png">
+  <img src="docs/images/fr/settings-general.png" alt="Réglages généraux">
 </picture>
 
 ## Installation
@@ -121,6 +122,7 @@ Le workflow `.github/workflows/release.yml` compile un binaire universel et une 
 
 - `Tools/bump-version.sh` : incrémente la version avant un commit.
 - `Tools/make-icon.sh` : régénère `Resources/AppIcon.icns`.
+- `Tools/l10n.py build` : régénère `Resources/en.lproj/Localizable.strings` depuis `Tools/l10n/en.json` (le code est écrit en français ; `Tools/l10n.py missing en` liste les textes sans traduction).
 
 ## Crédits
 

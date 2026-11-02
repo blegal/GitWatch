@@ -34,14 +34,20 @@ struct BranchLabel: View {
             HStack(spacing: 3) {
                 Text(branch).foregroundStyle(status.onOtherBranch ? AnyShapeStyle(.orange) : AnyShapeStyle(.tertiary))
                 if status.onOtherBranch, status.defaultBehind > 0, let main = status.defaultBranch {
-                    Text("· \(main) ↓\(status.defaultBehind)").foregroundStyle(.orange)
+                    Text(verbatim: "· \(main) ↓\(status.defaultBehind)").foregroundStyle(.orange)
                 }
             }
             .font(.app(.caption))
             .lineLimit(1)
-            .help(status.onOtherBranch ? "Vous n’êtes pas sur \(status.defaultBranch ?? "la branche par défaut")."
-                  + (status.defaultBehind > 0 ? " \(status.defaultBranch ?? "") a \(status.defaultBehind) commit(s) à récupérer." : "") : branch)
+            .help(status.onOtherBranch ? otherBranchHelp : branch)
         }
+    }
+
+    private var otherBranchHelp: String {
+        let main = status.defaultBranch ?? L("la branche par défaut")
+        var text = L("Vous n’êtes pas sur \(main).")
+        if status.defaultBehind > 0 { text += " " + L("\(main) a \(status.defaultBehind) commit(s) à récupérer.") }
+        return text
     }
 }
 
@@ -63,21 +69,21 @@ struct RepoCounters: View {
                     }
                 } else if status.changedFiles > status.untracked {
                     let n = status.changedFiles - status.untracked
-                    Text(n == 1 ? "1 fichier" : "\(n) fichiers")
+                    Text(n == 1 ? L("1 fichier") : L("\(n) fichiers"))
                 }
                 if status.untracked > 0 {
-                    item("doc.badge.plus", status.untracked, status.untracked == 1 ? "1 fichier non suivi" : "\(status.untracked) fichiers non suivis")
+                    item("doc.badge.plus", status.untracked, RepoSummary.untracked(status))
                 }
                 if status.stashes > 0 {
-                    item("tray.full", status.stashes, status.stashes == 1 ? "1 stash en attente" : "\(status.stashes) stashes en attente")
+                    item("tray.full", status.stashes, RepoSummary.stashes(status))
                 }
                 if !status.unpushedBranches.isEmpty {
                     item("arrow.triangle.branch", status.unpushedBranches.count, RepoSummary.branches(status))
                 }
                 if category == .pulled, let date = repo.lastPull {
-                    Text("pull à \(date.formatted(date: .omitted, time: .shortened))").foregroundStyle(.tertiary)
+                    Text(L("pull à \(date.timeText)")).foregroundStyle(.tertiary)
                 } else if category == .upToDate, status.upstream == nil {
-                    Text("sans amont").foregroundStyle(.tertiary)
+                    Text(L("sans amont")).foregroundStyle(.tertiary)
                 }
             }
         }
@@ -104,27 +110,35 @@ enum RepoSummary {
         guard let status = repo.status else { return lines[0] }
         if !status.incoming.isEmpty {
             lines.append("")
-            lines.append("À récupérer :")
+            lines.append(L("À récupérer :"))
             lines += status.incoming.map { "• \($0.subject) — \($0.author)" }
-            if status.behind > status.incoming.count { lines.append("• … et \(status.behind - status.incoming.count) autres") }
+            if status.behind > status.incoming.count { lines.append(L("• … et \(status.behind - status.incoming.count) autres")) }
         }
         if !status.unpushedBranches.isEmpty {
             lines.append("")
             lines.append(branches(status))
         }
         if status.stashes > 0 {
-            lines.append(status.stashes == 1 ? "1 stash en attente" : "\(status.stashes) stashes en attente")
+            lines.append(stashes(status))
         }
         if status.untracked > 0 {
-            lines.append(status.untracked == 1 ? "1 fichier non suivi" : "\(status.untracked) fichiers non suivis")
+            lines.append(untracked(status))
         }
         return lines.joined(separator: "\n")
     }
 
     static func branches(_ status: RepoStatus) -> String {
-        "Commits non poussés : " + status.unpushedBranches.map { branch in
-            "\(branch.name) (\(branch.commits)\(branch.local ? ", locale" : ""))"
+        L("Commits non poussés : ") + status.unpushedBranches.map { branch in
+            branch.local ? L("\(branch.name) (\(branch.commits), locale)") : "\(branch.name) (\(branch.commits))"
         }.joined(separator: ", ")
+    }
+
+    static func stashes(_ status: RepoStatus) -> String {
+        status.stashes == 1 ? L("1 stash en attente") : L("\(status.stashes) stashes en attente")
+    }
+
+    static func untracked(_ status: RepoStatus) -> String {
+        status.untracked == 1 ? L("1 fichier non suivi") : L("\(status.untracked) fichiers non suivis")
     }
 
     /// « GitHub », « GitLab » ou le nom d'hôte.

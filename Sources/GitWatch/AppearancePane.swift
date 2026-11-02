@@ -10,20 +10,20 @@ struct AppearancePane: View {
     var body: some View {
         @Bindable var preferences = preferences
         Form {
-            Section("Texte") {
-                Picker("Police", selection: $preferences.fontChoice) {
+            Section(L("Texte")) {
+                Picker(L("Police"), selection: $preferences.fontChoice) {
                     ForEach(FontChoice.allCases) { choice in
                         Text(choice.title).font(sample(choice)).tag(choice)
                     }
                 }
                 if preferences.fontChoice == .custom {
-                    Picker("Famille", selection: $preferences.customFontFamily) {
+                    Picker(L("Famille"), selection: $preferences.customFontFamily) {
                         ForEach(Self.families, id: \.self) { family in
                             Text(family).font(.custom(family, size: 13)).tag(family)
                         }
                     }
                 }
-                LabeledContent("Taille") {
+                LabeledContent(L("Taille")) {
                     HStack(spacing: 10) {
                         Image(systemName: "textformat.size.smaller").foregroundStyle(.secondary)
                         Slider(value: $preferences.fontSize, in: 11...17, step: 1).frame(width: 180)
@@ -31,12 +31,12 @@ struct AppearancePane: View {
                         Text("\(Int(preferences.fontSize)) pt").monospacedDigit().frame(width: 40, alignment: .trailing)
                     }
                 }
-                Picker("Densité", selection: $preferences.density) {
+                Picker(L("Densité"), selection: $preferences.density) {
                     ForEach(Density.allCases) { Text($0.title).tag($0) }
                 }
                 .pickerStyle(.segmented)
                 if preferences.fontChoice != .system || preferences.fontSize != 13 || preferences.density != .comfortable {
-                    Button("Rétablir les réglages par défaut") {
+                    Button(L("Rétablir les réglages par défaut")) {
                         Motion.perform {
                             preferences.fontChoice = .system
                             preferences.fontSize = 13
@@ -46,20 +46,20 @@ struct AppearancePane: View {
                 }
             }
             Section {
-                Toggle("Animations", isOn: $preferences.animations)
+                Toggle(L("Animations"), isOn: $preferences.animations)
             } footer: {
                 Text(NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-                     ? "« Réduire les animations » est activé dans Réglages Système → Accessibilité : les animations restent coupées."
-                     : "Anneau de santé, compteurs qui défilent, lignes qui glissent d’une section à l’autre, rebond de l’icône quand des commits arrivent.")
+                     ? L("« Réduire les animations » est activé dans Réglages Système → Accessibilité : les animations restent coupées.")
+                     : L("Anneau de santé, compteurs qui défilent, lignes qui glissent d’une section à l’autre, rebond de l’icône quand des commits arrivent."))
                     .foregroundStyle(.secondary)
             }
-            Section("Aperçu") {
+            Section(L("Aperçu")) {
                 AppearancePreview()
                     .frame(maxWidth: .infinity)
             }
         }
         .formStyle(.grouped)
-        .navigationTitle("Apparence")
+        .navigationTitle(L("Apparence"))
         .animation(Motion.animation(Motion.spring), value: preferences.fontSize)
     }
 
@@ -100,8 +100,8 @@ private struct AppearancePreview: View {
             HStack(spacing: 10) {
                 HealthRing(repos: Self.samples).frame(width: 30, height: 30)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("Dépôts Git").font(.app(.headline))
-                    Text("Vérifié il y a 3 min · 3 dépôts").font(.app(.caption)).foregroundStyle(.secondary)
+                    Text(L("Dépôts Git")).font(.app(.headline))
+                    Text(L("Vérifié il y a 3 min · 3 dépôts")).font(.app(.caption)).foregroundStyle(.secondary)
                 }
             }
             .padding(.horizontal, 14)

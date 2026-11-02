@@ -62,7 +62,7 @@ final class RemoteCatalog {
         defer { cloning.remove(repo.id) }
         let target = folder.appendingPathComponent(repo.name)
         if FileManager.default.fileExists(atPath: target.path) {
-            cloneErrors[repo.id] = "\((target.path as NSString).abbreviatingWithTildeInPath) existe déjà."
+            cloneErrors[repo.id] = L("\((target.path as NSString).abbreviatingWithTildeInPath) existe déjà.")
             return
         }
         do {
@@ -84,7 +84,7 @@ final class RemoteCatalog {
     /// Dépôts GitHub de l'utilisateur et ceux qui lui sont partagés, via GitHub CLI (son jeton, dans le trousseau).
     nonisolated private static func github() throws -> [RemoteRepo] {
         guard let gh = ["/opt/homebrew/bin/gh", "/usr/local/bin/gh"].first(where: { FileManager.default.isExecutableFile(atPath: $0) }) else {
-            throw Git.Failure(message: "GitHub CLI introuvable : installez-le (brew install gh) puis connectez-vous (gh auth login).")
+            throw Git.Failure(message: L("GitHub CLI introuvable : installez-le (brew install gh) puis connectez-vous (gh auth login)."))
         }
         return try ["owner", "collaborator"].flatMap { affiliation in
             let output = try run(gh, ["api", "--paginate", "user/repos?per_page=100&affiliation=\(affiliation)",
@@ -120,8 +120,8 @@ final class RemoteCatalog {
             let http = response as? HTTPURLResponse
             switch http?.statusCode ?? 0 {
             case 200: break
-            case 401, 403: throw Git.Failure(message: "Jeton GitLab refusé par \(host) (portée read_api nécessaire).")
-            case let code: throw Git.Failure(message: "\(host) a répondu \(code).")
+            case 401, 403: throw Git.Failure(message: L("Jeton GitLab refusé par \(host) (portée read_api nécessaire)."))
+            case let code: throw Git.Failure(message: L("\(host) a répondu \(code)."))
             }
             for project in try JSONDecoder().decode([GitLabProject].self, from: data) {
                 guard let web = URL(string: project.web_url) else { continue }
@@ -158,7 +158,7 @@ final class RemoteCatalog {
         guard process.terminationStatus == 0 else {
             let message = String(decoding: errorData, as: UTF8.self).trimmed
             throw Git.Failure(message: message.contains("auth login") || message.contains("401")
-                              ? "GitHub CLI n’est pas connecté : lancez gh auth login dans le Terminal." : message)
+                              ? L("GitHub CLI n’est pas connecté : lancez gh auth login dans le Terminal.") : message)
         }
         return String(decoding: data, as: UTF8.self)
     }

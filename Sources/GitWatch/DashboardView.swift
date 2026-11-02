@@ -26,7 +26,7 @@ struct DashboardView: View {
             detail
         }
         .font(.app(.body))
-        .searchable(text: $search, placement: .toolbar, prompt: "Filtrer")
+        .searchable(text: $search, placement: .toolbar, prompt: L("Filtrer"))
         .toolbar {
             ToolbarItemGroup {
                 let pullable = monitor.safelyPullable.count
@@ -34,18 +34,18 @@ struct DashboardView: View {
                 Button { Task { await monitor.pullAll() } } label: { Label(pullable > 0 ? "Pull all (\(pullable))" : "Pull all", systemImage: "arrow.down") }
                     .labelStyle(.titleAndIcon)
                     .disabled(pullable == 0)
-                    .help("Pull des dépôts en retard qui n’ont ni commit ni modification locale.")
+                    .help(L("Pull des dépôts en retard qui n’ont ni commit ni modification locale."))
                 Button { Task { await monitor.pushAll() } } label: { Label(pushable > 0 ? "Push all (\(pushable))" : "Push all", systemImage: "arrow.up") }
                     .labelStyle(.titleAndIcon)
                     .disabled(pushable == 0)
-                    .help("Push des dépôts en avance et à jour avec le serveur.")
+                    .help(L("Push des dépôts en avance et à jour avec le serveur."))
                 Button { Task { await monitor.refresh(fetch: true) } } label: {
-                    Label(monitor.progress.map { "\($0.done)/\($0.total)" } ?? "Vérifier", systemImage: "arrow.clockwise")
+                    Label(monitor.progress.map { "\($0.done)/\($0.total)" } ?? L("Vérifier"), systemImage: "arrow.clockwise")
                         .symbolEffect(.rotate, options: .repeat(.continuous), isActive: monitor.isChecking && Motion.enabled)
                         .contentTransition(.numericText())
                 }
                 .disabled(monitor.isChecking)
-                .help(monitor.isChecking ? "Vérification en cours…" : "Vérifier maintenant")
+                .help(monitor.isChecking ? L("Vérification en cours…") : L("Vérifier maintenant"))
             }
         }
     }
@@ -58,17 +58,17 @@ struct DashboardView: View {
             HStack(spacing: 12) {
                 HealthRing(repos: monitor.followedRepos, lineWidth: 6).frame(width: 52, height: 52)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("\(monitor.followedRepos.count) dépôts").font(.app(.headline))
+                    Text(monitor.followedRepos.count == 1 ? L("1 dépôt") : L("\(monitor.followedRepos.count) dépôts")).font(.app(.headline))
                     Text(attentionSummary(counts)).font(.app(.caption)).foregroundStyle(.secondary)
                         .contentTransition(.numericText())
                 }
             }
             .padding(.vertical, 8)
             .selectionDisabled()
-            Label("Tous les dépôts", systemImage: "tray.2")
+            Label(L("Tous les dépôts"), systemImage: "tray.2")
                 .badge(monitor.followedRepos.count)
                 .tag(RepoCategory?.none)
-            Section("État") {
+            Section(L("État")) {
                 ForEach(RepoCategory.allCases) { category in
                     if let count = counts[category], count > 0 {
                         Label { Text(category.title) } icon: {
@@ -91,17 +91,17 @@ struct DashboardView: View {
         .animation(Motion.animation(Motion.spring), value: repos.map { "\($0.id)\(RepoCategory($0).rawValue)" })
         .overlay {
             if repos.isEmpty {
-                ContentUnavailableView(search.isEmpty ? "Aucun dépôt" : "Aucun résultat", systemImage: "checkmark.circle",
-                                       description: Text(search.isEmpty ? "Rien à signaler dans cette catégorie." : "Aucun dépôt ne correspond au filtre."))
+                ContentUnavailableView(search.isEmpty ? L("Aucun dépôt") : L("Aucun résultat"), systemImage: "checkmark.circle",
+                                       description: Text(search.isEmpty ? L("Rien à signaler dans cette catégorie.") : L("Aucun dépôt ne correspond au filtre.")))
             }
         }
-        .navigationTitle(showAll || filter == nil ? "Tous les dépôts" : filter!.title)
-        .navigationSubtitle(monitor.lastCheck.map { "Vérifié \($0.formatted(.relative(presentation: .named)))" } ?? "")
+        .navigationTitle(showAll || filter == nil ? L("Tous les dépôts") : filter!.title)
+        .navigationSubtitle(monitor.lastCheck.map { L("Vérifié \($0.relativeText)") } ?? "")
     }
 
     private func attentionSummary(_ counts: [RepoCategory: Int]) -> String {
         let attention = (counts[.toPull] ?? 0) + (counts[.error] ?? 0)
-        return attention == 0 ? "Tout est à jour" : attention == 1 ? "1 demande attention" : "\(attention) demandent attention"
+        return attention == 0 ? L("Tout est à jour") : attention == 1 ? L("1 demande attention") : L("\(attention) demandent attention")
     }
 
     @ViewBuilder
@@ -112,8 +112,8 @@ struct DashboardView: View {
         } else if selected.count > 1 {
             SelectionSummary(repos: selected)
         } else {
-            ContentUnavailableView("Aucune sélection", systemImage: "sidebar.right",
-                                   description: Text("Sélectionnez un dépôt pour voir ses commits à récupérer, ses branches et ses stashes."))
+            ContentUnavailableView(L("Aucune sélection"), systemImage: "sidebar.right",
+                                   description: Text(L("Sélectionnez un dépôt pour voir ses commits à récupérer, ses branches et ses stashes.")))
         }
     }
 }
@@ -151,7 +151,7 @@ struct DashboardRow: View {
                 } else if let error = repo.pullError {
                     Text(error).font(.app(.caption)).foregroundStyle(.orange).lineLimit(2)
                 } else if let commit = repo.status?.incoming.first {
-                    Text("↓ \(commit.subject)").font(.app(.caption)).foregroundStyle(.secondary).lineLimit(1)
+                    Text(verbatim: "↓ \(commit.subject)").font(.app(.caption)).foregroundStyle(.secondary).lineLimit(1)
                 } else {
                     Text(repo.displayPath).font(.app(.caption)).foregroundStyle(.tertiary).lineLimit(1)
                 }
@@ -180,13 +180,13 @@ struct RepoSyncButtons: View {
             let needsMerge = status.behind > 0 && (status.ahead > 0 || repo.pullError != nil)
             HStack(spacing: 6) {
                 if canPull {
-                    button("Pull", "arrow.down", help: "Pull (avance rapide)") { Task { await monitor.pull(repo) } }
+                    button("Pull", "arrow.down", help: L("Pull (avance rapide)")) { Task { await monitor.pull(repo) } }
                 }
                 if canPush {
                     button("Push", "arrow.up", help: "Push") { Task { await monitor.push(repo) } }
                 }
                 if needsMerge, ExternalTool.githubDesktop.isAvailable {
-                    button("Fusionner", "arrow.triangle.merge", help: "Fusion manuelle dans GitHub Desktop") { ExternalTool.githubDesktop.open(repo.url) }
+                    button(L("Fusionner"), "arrow.triangle.merge", help: L("Fusion manuelle dans GitHub Desktop")) { ExternalTool.githubDesktop.open(repo.url) }
                 }
             }
         }
@@ -227,10 +227,10 @@ struct RepoDetail: View {
                             .buttonStyle(.borderless).help(tool.help)
                     }
                     Button { NSWorkspace.shared.open(repo.url) } label: { Image(systemName: "folder") }
-                        .buttonStyle(.borderless).help("Ouvrir dans le Finder")
+                        .buttonStyle(.borderless).help(L("Ouvrir dans le Finder"))
                     if let web = repo.status?.webURL {
                         Button { NSWorkspace.shared.open(web) } label: { Image(systemName: "safari") }
-                            .buttonStyle(.borderless).help("Ouvrir sur \(RepoSummary.hostName(web))")
+                            .buttonStyle(.borderless).help(L("Ouvrir sur \(RepoSummary.hostName(web))"))
                     }
                 }
             }
@@ -238,45 +238,46 @@ struct RepoDetail: View {
                 Section { Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(repo.status?.error != nil ? .red : .orange) }
             }
             if let status = repo.status {
-                Section("État") {
-                    LabeledContent("Branche") {
-                        Text("\(status.branch ?? "détachée")\(status.onOtherBranch ? " (pas sur \(status.defaultBranch ?? ""))" : "")")
+                Section(L("État")) {
+                    LabeledContent(L("Branche")) {
+                        let branch = status.branch ?? L("détachée")
+                        Text(status.onOtherBranch ? L("\(branch) (pas sur \(status.defaultBranch ?? ""))") : branch)
                     }
                     if status.onOtherBranch, status.defaultBehind > 0, let main = status.defaultBranch {
-                        LabeledContent(main) { Text("↓\(status.defaultBehind) à récupérer").foregroundStyle(.orange) }
+                        LabeledContent(main) { Text(L("↓\(status.defaultBehind) à récupérer")).foregroundStyle(.orange) }
                     }
-                    LabeledContent("Suit", value: status.upstream ?? "aucune branche distante")
+                    LabeledContent(L("Suit"), value: status.upstream ?? L("aucune branche distante"))
                     if status.ahead > 0 || status.behind > 0 {
-                        LabeledContent("Serveur", value: [status.behind > 0 ? "↓\(status.behind) à récupérer" : nil,
-                                                         status.ahead > 0 ? "↑\(status.ahead) à envoyer" : nil].compactMap { $0 }.joined(separator: " · "))
+                        LabeledContent(L("Serveur"), value: [status.behind > 0 ? L("↓\(status.behind) à récupérer") : nil,
+                                                         status.ahead > 0 ? L("↑\(status.ahead) à envoyer") : nil].compactMap { $0 }.joined(separator: " · "))
                     }
-                    LabeledContent("Modifications") {
-                        if status.isClean { Text("aucune") } else {
+                    LabeledContent(L("Modifications")) {
+                        if status.isClean { Text(L("aucune")) } else {
                             HStack(spacing: 4) {
-                                Text("\(status.changedFiles - status.untracked) modifié(s), \(status.untracked) non suivi(s) ·")
-                                Text("+\(status.added)").foregroundStyle(.green)
-                                Text("−\(status.removed)").foregroundStyle(.red)
+                                Text(L("\(status.changedFiles - status.untracked) modifié(s), \(status.untracked) non suivi(s) ·"))
+                                Text(verbatim: "+\(status.added)").foregroundStyle(.green)
+                                Text(verbatim: "−\(status.removed)").foregroundStyle(.red)
                             }
                         }
                     }
                     if status.stashes > 0 { LabeledContent("Stashes", value: "\(status.stashes)") }
                 }
                 if !status.incoming.isEmpty {
-                    Section(status.behind > status.incoming.count ? "À récupérer (\(status.incoming.count) derniers sur \(status.behind))" : "À récupérer") {
+                    Section(status.behind > status.incoming.count ? L("À récupérer (\(status.incoming.count) derniers sur \(status.behind))") : L("À récupérer")) {
                         ForEach(status.incoming) { commit in
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(commit.subject).lineLimit(2)
-                                Text("\(commit.hash) · \(commit.author) · \(commit.date.formatted(.relative(presentation: .named)))")
+                                Text(verbatim: "\(commit.hash) · \(commit.author) · \(commit.date.relativeText)")
                                     .font(.app(.caption)).foregroundStyle(.secondary)
                             }
                         }
                     }
                 }
                 if !status.unpushedBranches.isEmpty {
-                    Section("Commits non poussés sur d’autres branches") {
+                    Section(L("Commits non poussés sur d’autres branches")) {
                         ForEach(status.unpushedBranches) { branch in
-                            LabeledContent(branch.name, value: "\(branch.commits) commit\(branch.commits > 1 ? "s" : "")"
-                                           + (branch.local ? " · branche locale" : ""))
+                            LabeledContent(branch.name, value: (branch.commits > 1 ? L("\(branch.commits) commits") : L("1 commit"))
+                                           + (branch.local ? " · " + L("branche locale") : ""))
                         }
                     }
                 }
@@ -296,7 +297,7 @@ struct SelectionSummary: View {
         let pushable = repos.filter { monitor.pushable.map(\.id).contains($0.id) }
         VStack(spacing: 14) {
             Image(systemName: "square.stack.3d.up").font(.system(size: 40)).foregroundStyle(.secondary)
-            Text("\(repos.count) dépôts sélectionnés").font(.app(.title3, weight: .semibold))
+            Text(L("\(repos.count) dépôts sélectionnés")).font(.app(.title3, weight: .semibold))
             HStack {
                 Button { Task { await monitor.pullAll(pullable) } } label: { Label("Pull (\(pullable.count))", systemImage: "arrow.down") }
                     .disabled(pullable.isEmpty)
@@ -304,7 +305,7 @@ struct SelectionSummary: View {
                     .disabled(pushable.isEmpty)
             }
             .controlSize(.large)
-            Text("Pull en avance rapide pour les dépôts sans commit ni modification locale ; Push pour ceux en avance et à jour avec le serveur.")
+            Text(L("Pull en avance rapide pour les dépôts sans commit ni modification locale ; Push pour ceux en avance et à jour avec le serveur."))
                 .font(.app(.callout)).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: 320)
         }
         .padding()
