@@ -95,7 +95,7 @@ Langue, intervalle de vérification, présentation du menu, notifications, compt
 
 GitWatch apparaît alors dans la barre des menus. Il se met à jour tout seul : les nouvelles versions sont proposées au lancement, ou avec *Rechercher les mises à jour…* dans les réglages. Chaque mise à jour est vérifiée par une signature Ed25519 avant d'être installée.
 
-Nécessite macOS 26 ou plus récent.
+Nécessite macOS 15 ou plus récent.
 
 ## Fonctionnement
 

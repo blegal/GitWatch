@@ -95,7 +95,7 @@ Language, check interval, menu layout, notifications, GitHub and GitLab accounts
 
 GitWatch then appears in the menu bar. It updates itself: new versions are offered at launch, or with *Check for updates…* in the settings. Each update is verified with an Ed25519 signature before it is installed.
 
-Requires macOS 26 or later.
+Requires macOS 15 or later.
 
 ## How it works
 

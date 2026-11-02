@@ -1,5 +1,5 @@
 {
-  "originHash" : "6a15fc226bc2345aaa4e022cbb5768c2a8392e08556af3aae4af43b804419c59",
+  "originHash" : "cff82a57d2d7c3cb8fd4ba50eb4d520cc8c5a51cc1f2a9c9bb15fe84f3638d7a",
   "pins" : [
     {
       "identity" : "ibaobab",
@@ -7,7 +7,7 @@
       "location" : "https://github.com/blegal/iBaobab",
       "state" : {
         "branch" : "main",
-        "revision" : "276b24c7af03a81d7006c89c94709f37b3ba6ee8"
+        "revision" : "424829cf2652264c2cd478858f686b2f78a42f0c"
       }
     }
   ],
