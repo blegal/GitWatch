@@ -93,6 +93,12 @@ Langue, intervalle de vérification, présentation du menu, notifications, compt
 2. Ouvrez-le et glissez **GitWatch** dans **Applications**.
 3. L'application n'est pas notarisée par Apple. Au premier lancement, ouvrez **Réglages Système › Confidentialité et sécurité** et cliquez sur **Ouvrir quand même**.
 
+Ou avec [Homebrew](https://brew.sh), qui évite l'étape 3 :
+
+```bash
+brew install --cask blegal/tap/gitwatch
+```
+
 GitWatch apparaît alors dans la barre des menus. Il se met à jour tout seul : les nouvelles versions sont proposées au lancement, ou avec *Rechercher les mises à jour…* dans les réglages. Chaque mise à jour est vérifiée par une signature Ed25519 avant d'être installée.
 
 Nécessite macOS 15 ou plus récent.

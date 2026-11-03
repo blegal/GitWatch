@@ -93,6 +93,12 @@ Language, check interval, menu layout, notifications, GitHub and GitLab accounts
 2. Open it and drag **GitWatch** into **Applications**.
 3. The app is not notarized by Apple. On first launch, open **System Settings › Privacy & Security** and click **Open Anyway**.
 
+Or with [Homebrew](https://brew.sh), which skips step 3:
+
+```bash
+brew install --cask blegal/tap/gitwatch
+```
+
 GitWatch then appears in the menu bar. It updates itself: new versions are offered at launch, or with *Check for updates…* in the settings. Each update is verified with an Ed25519 signature before it is installed.
 
 Requires macOS 15 or later.
