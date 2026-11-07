@@ -8,6 +8,7 @@ struct MenuView: View {
     @Environment(WindowRouter.self) private var router
     @Environment(\.openWindow) private var openWindow
     @State private var showUpToDate = false
+    @State private var visible = false
 
     private var repos: [Repo] { monitor.followedRepos }
 
@@ -33,6 +34,9 @@ struct MenuView: View {
         .frame(width: MenuMetrics.width)
         // Les dépôts qui changent de catégorie glissent vers leur nouvelle section.
         .animation(Motion.animation(Motion.spring), value: repos.map { "\($0.id)\(RepoCategory($0).rawValue)" })
+        // Menu fermé : plus d'animation en boucle (la fenêtre reste en mémoire, masquée).
+        .background(WindowVisibilityReader(visible: $visible))
+        .environment(\.windowVisible, visible)
     }
 
     // MARK: En-tête et pied

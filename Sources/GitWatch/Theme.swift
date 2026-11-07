@@ -105,25 +105,71 @@ struct HealthRing: View {
     }
 }
 
-/// Pastille qui pulse doucement (catégories à traiter).
+/// Pastille qui pulse doucement (catégories à traiter), seulement quand le menu est à l'écran.
 struct PulsingDot: View {
     let color: Color
     var pulsing = true
-    @State private var expanded = false
+    @Environment(\.windowVisible) private var windowVisible
 
     var body: some View {
         Circle()
             .fill(color)
             .frame(width: 6, height: 6)
             .background {
-                if pulsing && Motion.enabled {
-                    Circle()
-                        .stroke(color, lineWidth: 1.5)
-                        .scaleEffect(expanded ? 2.6 : 1)
-                        .opacity(expanded ? 0 : 0.7)
-                        .animation(.easeOut(duration: 1.6).repeatForever(autoreverses: false), value: expanded)
-                        .onAppear { expanded = true }
-                }
+                if pulsing && windowVisible && Motion.enabled { PulseRing(color: color) }
             }
+    }
+}
+
+/// Anneau qui s'élargit et s'efface en boucle. Retiré de la vue, il arrête l'animation ;
+/// réinséré, il repart de zéro (son état est neuf).
+private struct PulseRing: View {
+    let color: Color
+    @State private var expanded = false
+
+    var body: some View {
+        Circle()
+            .stroke(color, lineWidth: 1.5)
+            .scaleEffect(expanded ? 2.6 : 1)
+            .opacity(expanded ? 0 : 0.7)
+            .animation(.easeOut(duration: 1.6).repeatForever(autoreverses: false), value: expanded)
+            .onAppear { expanded = true }
+    }
+}
+
+extension EnvironmentValues {
+    /// La fenêtre qui contient la vue est-elle visible à l'écran ? (voir `WindowVisibilityReader`)
+    @Entry var windowVisible = true
+}
+
+/// Suit la visibilité de la fenêtre qui contient la vue. La fenêtre du menu n'est jamais détruite,
+/// seulement masquée : sans cela, une animation en boucle y tournerait indéfiniment, menu fermé,
+/// et SwiftUI recalculerait la fenêtre à chaque image (jusqu'à un cœur entier de CPU).
+struct WindowVisibilityReader: NSViewRepresentable {
+    @Binding var visible: Bool
+
+    func makeNSView(context: Context) -> Probe { Probe() }
+
+    func updateNSView(_ probe: Probe, context: Context) {
+        probe.onChange = { if visible != $0 { visible = $0 } }
+    }
+
+    final class Probe: NSView {
+        var onChange: (Bool) -> Void = { _ in }
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            NotificationCenter.default.removeObserver(self)
+            guard let window else { return }
+            NotificationCenter.default.addObserver(self, selector: #selector(occlusionChanged),
+                                                   name: NSWindow.didChangeOcclusionStateNotification, object: window)
+            occlusionChanged()
+        }
+
+        @objc private func occlusionChanged() {
+            let visible = window?.occlusionState.contains(.visible) ?? false
+            // Hors de la mise à jour de la vue en cours.
+            DispatchQueue.main.async { self.onChange(visible) }
+        }
     }
 }
