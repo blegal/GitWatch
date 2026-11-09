@@ -4,7 +4,8 @@
 #   UNIVERSAL=1        binaire universel (Apple Silicon + Intel)
 #   VERSION=1.2.0      numéro de version écrit dans Info.plist
 #   BUILD_NUMBER=42    numéro de build écrit dans Info.plist
-#   SIGN_IDENTITY=…    identité de signature (par défaut : signature ad hoc « - »)
+#   SIGN_IDENTITY=…    identité de signature (par défaut : « GitWatch Local » s'il existe, voir
+#                      Tools/make-local-cert.sh, sinon signature ad hoc « - »)
 set -euo pipefail
 cd "${0:A:h}"
 CONFIG=${1:-release}
@@ -36,5 +37,15 @@ cp -R Resources/*.lproj "$APP/Contents/Resources/"
 PLIST="$APP/Contents/Info.plist"
 [[ -n "${VERSION:-}" ]] && /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$PLIST"
 [[ -n "${BUILD_NUMBER:-}" ]] && /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$PLIST"
-codesign --force --timestamp=none --sign "${SIGN_IDENTITY:--}" "$APP" >/dev/null
+# Sans identité donnée : le certificat personnel créé par Tools/make-local-cert.sh s'il existe
+# (signature stable, macOS garde les autorisations d'un build à l'autre), sinon signature ad hoc.
+if [[ -z "${SIGN_IDENTITY:-}" ]] && security find-certificate -c "GitWatch Local" >/dev/null 2>&1; then
+    if ! codesign --force --timestamp=none --sign "GitWatch Local" "$APP" >/dev/null 2>&1; then
+        # Trousseau verrouillé (session SSH…) : signature ad hoc pour ne pas bloquer le build.
+        echo "Signature « GitWatch Local » impossible, signature ad hoc." >&2
+        codesign --force --timestamp=none --sign - "$APP" >/dev/null
+    fi
+else
+    codesign --force --timestamp=none --sign "${SIGN_IDENTITY:--}" "$APP" >/dev/null
+fi
 echo "$APP"

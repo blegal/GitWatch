@@ -122,6 +122,8 @@ Le détail du travail sur le CPU et la mémoire : [docs/Performance.md](docs/Per
 open build/GitWatch.app
 ```
 
+Une fois par Mac, `Tools/make-local-cert.sh` crée un certificat de signature personnel, « GitWatch Local », dans le trousseau de session. `build.sh` l'utilise ensuite : chaque build garde la même signature, et macOS conserve les autorisations accordées (dossiers protégés, notifications, automatisation…) au lieu de les redemander après chaque compilation. Sans lui, les builds sont signés ad hoc.
+
 Nécessite Xcode (Swift 6). Variables facultatives : `UNIVERSAL=1` (Apple Silicon + Intel), `VERSION`, `BUILD_NUMBER`, `SIGN_IDENTITY`. Seule dépendance : UpdateKit, du dépôt [iBaobab](https://github.com/blegal/iBaobab), pour la mise à jour automatique.
 
 Le workflow `.github/workflows/release.yml` compile un binaire universel et une image disque signée à chaque push, et publie une release GitHub pour chaque tag `v*`.
