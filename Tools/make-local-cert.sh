@@ -1,14 +1,17 @@
 #!/bin/zsh
-# Crée, une seule fois, un certificat de signature personnel « GitWatch Local » dans le trousseau de session.
+# Crée, une seule fois, un certificat de signature personnel « Local Code Signing » dans le trousseau de session.
+# Il est commun à toutes les apps (GitWatch, iExplorer, iBaobab…) : s'il existe déjà, quel que soit
+# le dépôt qui l'a créé, le script ne fait rien. Chaque app garde sa propre identité pour macOS,
+# car l'identifiant de bundle fait partie de l'exigence de signature.
 # build.sh signe ensuite chaque build avec lui : la signature reste la même d'un build à l'autre,
 # et macOS garde les autorisations accordées (dossiers protégés, notifications, automatisation…)
 # au lieu de les redemander après chaque compilation.
 #
 # Le certificat ne sert que sur ce Mac : il ne remplace pas un certificat Apple Developer
 # (les autres Mac affichent toujours l'avertissement de première ouverture).
-# Pour l'enlever : Trousseaux d'accès › session › Mes certificats › « GitWatch Local » › Supprimer.
+# Pour l'enlever : Trousseaux d'accès › session › Mes certificats › « Local Code Signing » › Supprimer.
 set -euo pipefail
-NAME=${1:-GitWatch Local}
+NAME=${1:-Local Code Signing}
 KEYCHAIN=$HOME/Library/Keychains/login.keychain-db
 
 if security find-certificate -c "$NAME" "$KEYCHAIN" >/dev/null 2>&1; then
